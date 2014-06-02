@@ -5,29 +5,26 @@
 #include "default_tracks.h"
 #include "geopoint.h"
 
-#define TRACKS_COUNT				40
-#define SECTOR_COUNT				20
-
 #define DEFAULT_TRACK_TARGET_RADIUS	0.0001
 
-#define TRACK_TYPE_CIRCUIT 			0
-#define TRACK_TYPE_SINGLE			1
+#define TF_STAGE    (1 << 0);
+#define TF_IGNORE   (1 << 1);
 
-typedef struct _Track{
-	unsigned char track_type;
-	union{
-		GeoPoint sectors[SECTOR_COUNT];
-		GeoPoint startFinish;
-		struct{
-			GeoPoint finish;
-			GeoPoint start;
-		};
-	};
+typedef struct _Track {
+    unsigned char track_type;
+    union {
+        GeoPoint sectors[];
+        GeoPoint startFinish;
+        struct {
+            GeoPoint finish;
+            GeoPoint start;
+        };
+    };
 } Track;
 
 typedef struct _Tracks{
 	size_t count;
-	Track tracks[TRACKS_COUNT];
+	Track tracks[];
 } Tracks;
 
 int flash_tracks(const Tracks *source, size_t rawSize);

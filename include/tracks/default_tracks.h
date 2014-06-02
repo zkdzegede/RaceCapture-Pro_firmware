@@ -8,6 +8,7 @@
 #ifndef DEFAULT_TRACKS_H_
 #define DEFAULT_TRACKS_H_
 
+#if FALSE
 #define The_Ridge_Motorsports_Park { \
 	TRACK_TYPE_CIRCUIT, \
 	{ \
@@ -70,6 +71,19 @@
 The_Ridge_Motorsports_Park, \
 Pacific_Raceways \
 } \
+}
+#endif
+
+#define DEFAULT_TRACKS \
+{ \
+    { \
+        sizeof(points) + 4, \
+        0, \
+        { \
+                {1.1, 1.1}, \
+                {2.2, 2.2}, \
+        } \
+    }, \
 }
 
 #endif /* DEFAULT_TRACKS_H_ */
