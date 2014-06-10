@@ -1,13 +1,4 @@
-#ifndef FILEWRITER_H_
-#define FILEWRITER_H_
-#include "loggerConfig.h"
-#include "FreeRTOS.h"
-#include "ff.h"
-#include "sampleRecord.h"
+#ifndef _FILEWRITER_H_
+#define _FILEWRITER_H_
 
-
-void startFileWriterTask( int priority );
-void fileWriterTask(void *params);
-portBASE_TYPE queue_logfile_record(LoggerMessage * sr);
-
-#endif /* FILEWRITER_H_ */
+#endif /* _FILEWRITER_H_ */

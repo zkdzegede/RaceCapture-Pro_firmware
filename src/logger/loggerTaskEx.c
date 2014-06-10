@@ -10,7 +10,7 @@
 #include "mod_string.h"
 #include "watchdog.h"
 #include "LED.h"
-#include "fileWriter.h"
+#include "dataLoggerTask.h"
 #include "connectivityTask.h"
 #include "sampleRecord.h"
 #include "loggerSampleData.h"

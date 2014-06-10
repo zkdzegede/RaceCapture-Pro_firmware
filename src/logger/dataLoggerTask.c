@@ -1,10 +1,11 @@
 /*
- * fileWriter.c
+ * dataLoggerTask.c
  *
- *  Created on: Feb 29, 2012
- *      Author: brent
+ * Responsible for writing RCP Log data to a file.
+ *
+ * Author: stieg
  */
-#include "fileWriter.h"
+#include "dataLoggerTask.h"
 #include "task.h"
 #include "semphr.h"
 #include "modp_numtoa.h"
@@ -189,7 +190,7 @@ static int open_new_logfile(char *filename){
 	return status;
 }
 
-void fileWriterTask(void *params){
+void logWriterTask(void *params){
 	LoggerMessage *msg = NULL;
 	unsigned int flushTimeoutInterval = 0;
 	portTickType flushTimeoutStart = 0;
@@ -262,5 +263,5 @@ void startFileWriterTask( int priority ){
 		pr_error("Could not create sample record queue!");
 		return;
 	}
-	xTaskCreate( fileWriterTask,( signed portCHAR * ) "fileWriter", FILE_WRITER_STACK_SIZE, NULL, priority, NULL );
+	xTaskCreate( logWriterTask,( signed portCHAR * ) "log writer", FILE_WRITER_STACK_SIZE, NULL, priority, NULL );
 }

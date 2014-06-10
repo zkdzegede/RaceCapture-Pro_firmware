@@ -28,7 +28,7 @@
 
 //logging related tasks
 #include "loggerTaskEx.h"
-#include "fileWriter.h"
+#include "dataLoggerTask.h"
 #include "connectivityTask.h"
 #include "luaTask.h"
 #include "luaCommands.h"
