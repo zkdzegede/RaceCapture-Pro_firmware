@@ -157,6 +157,7 @@ $(SDCARD_SRC_DIR)/sdcard.c \
 $(IMU_SRC_DIR)/imu.c \
 $(LOGGER_SRC_DIR)/sampleRecord.c \
 $(LOGGER_SRC_DIR)/dataLoggerTask.c \
+$(LOGGER_SRC_DIR)/logFileWriter.c \
 $(LOGGER_SRC_DIR)/loggerHardware.c \
 $(LOGGER_SRC_DIR)/loggerData.c \
 $(LOGGER_SRC_DIR)/loggerSampleData.c \
