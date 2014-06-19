@@ -86,8 +86,8 @@ T_SRC = loggerApi_test.cpp \
 		loggerData_test.cpp \
 		$(GPS_DIR)/gps_test.cpp \
 		$(UTIL_DIR)/numtoa_test.cpp \
-		$(UTIL_DIR)/atonum_test.cpp 
-		
+		$(UTIL_DIR)/atonum_test.cpp
+
 SRC = 	mock_uart.c \
 		mock_usb_comm.c \
 		mock_serial.c \
@@ -127,6 +127,7 @@ SRC = 	mock_uart.c \
 		$(MOCK_DIR)/spi_mock.c \
 		$(MOCK_DIR)/watchdog_device_mock.c \
 		$(MOCK_DIR)/CAN_device_mock.c \
+		$(MOCK_DIR)/ff_mock.c \
 		$(RCP_SRC)/predictive_timer/predictive_timer_2.c \
 		$(RCP_SRC)/auto_config/auto_track.c \
 		$(RCP_SRC)/util/linear_interpolate.c \
@@ -155,7 +156,7 @@ test: $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ) -lm -lcppunit
 
 sim: $(OBJSIM)
-	$(CXX) $(CXXFLAGS) -o $(SIMNAME) $(OBJSIM) -lm 
-	
+	$(CXX) $(CXXFLAGS) -o $(SIMNAME) $(OBJSIM) -lm
+
 clean:
 	rm -f $(OBJ) $(NAME) $(OBJSIM)
