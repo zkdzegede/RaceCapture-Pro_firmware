@@ -34,7 +34,7 @@ int getAtStartFinish();
 
 int getAtSector();
 
-void getUTCTimeFormatted(char * buf);
+void getUTCTimeFormatted(char buf[], size_t len);
 
 float getUTCTime();
 

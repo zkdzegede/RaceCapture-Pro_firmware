@@ -23,6 +23,13 @@ int8_t month;
 int8_t partialYear;
 } DateTime;
 
+unsigned int convertToFullYear(int partialYear);
 unsigned long getMillisecondsSinceUnixEpoch(DateTime dt);
 long getTimeDeltaInMillis(DateTime a, DateTime b);
+
+/**
+ * Tells the caller if the given DateTime struct contains valid date Time info.
+ */
+bool isValid(const DateTime *dt);
+
 #endif //__DATE_TIME_H__

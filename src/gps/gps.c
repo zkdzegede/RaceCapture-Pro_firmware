@@ -98,7 +98,7 @@ long getMillisSinceEpoch() {
  */
 void updateFullDateTime(DateTime fixDateTime) {
    g_dtLastFix = fixDateTime;
-   if (g_dtFirstFix.partialYear == 0)
+   if (!isValid(&g_dtFirstFix))
       g_dtFirstFix = fixDateTime;
 }
 
@@ -407,8 +407,62 @@ float getSecondsSinceMidnight() {
    return g_secondsSinceMidnight;
 }
 
-void getUTCTimeFormatted(char * buf) {
+/**
+ * Returns false if we are out of space.  Else adjusts remaining space.
+ */
+static bool spaceLeft(size_t *remaining, size_t taken) {
+	*remaining -= taken;
+	return *remaining > 0;
+}
 
+void getUTCTimeFormatted(char buf[], size_t len) {
+	/*
+	 * "YYYY-MM-DD_HH-MM-SS" -> 20 characters.  Man printf would be nice here...
+	 */
+
+	char tmp[5];
+	const DateTime dt = getLastFixDateTime();
+	if (!isValid(&dt)) goto fail;
+
+	modp_uitoa10(convertToFullYear(dt.partialYear), tmp);
+	if (!spaceLeft(&len, strlen(tmp))) goto fail;
+	strcat(buf, tmp);
+	strcat(buf, "-");
+
+	modp_uitoa10(dt.month, tmp);
+	if (!spaceLeft(&len, strlen(tmp))) goto fail;
+	if (dt.month < 10) strcat(buf, "0");
+	strcat(buf, tmp);
+	strcat(buf, "-");
+
+	modp_uitoa10(dt.day, tmp);
+	if (!spaceLeft(&len, strlen(tmp))) goto fail;
+	if (dt.day < 10) strcat(buf, "0");
+	strcat(buf, tmp);
+	strcat(buf, "_");
+
+	modp_uitoa10(dt.hour, tmp);
+	if (!spaceLeft(&len, strlen(tmp))) goto fail;
+	if (dt.hour < 10) strcat(buf, "0");
+	strcat(buf, tmp);
+	strcat(buf, "-");
+
+	modp_uitoa10(dt.minute, tmp);
+	if (!spaceLeft(&len, strlen(tmp))) goto fail;
+	if (dt.minute < 10) strcat(buf, "0");
+	strcat(buf, tmp);
+	strcat(buf, "-");
+
+	modp_uitoa10(dt.second, tmp);
+	if (!spaceLeft(&len, strlen(tmp))) goto fail;
+	if (dt.second < 10) strcat(buf, "0");
+	strcat(buf, tmp);
+
+	return;
+
+	fail:
+	buf[0] = '\0';
+	return;
 }
 
 float getLatitude() {

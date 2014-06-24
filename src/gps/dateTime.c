@@ -95,3 +95,6 @@ long getTimeDeltaInMillis(DateTime a, DateTime b) {
    return getMillisecondsSinceUnixEpoch(a) - getMillisecondsSinceUnixEpoch(b);
 }
 
+bool isValid(const DateTime *dt) {
+	return dt->month != 0;
+}
