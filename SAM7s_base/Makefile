@@ -354,7 +354,8 @@ endif
 #    -adhlns...: create assembler listing
 #
 # Flags for C and C++ (arm-elf-gcc/arm-elf-g++)
-CFLAGS = $(DEBUG)
+CFLAGS =
+CFLAGS += $(DEBUG)
 CFLAGS += $(CDEFS) $(CINCS)
 CFLAGS += -O$(OPT)
 CFLAGS += -Wall
@@ -366,7 +367,17 @@ CFLAGS += -Wcast-align -Wimplicit
 CFLAGS += -Wpointer-arith -Wswitch
 CFLAGS += -Wredundant-decls -Wreturn-type -Wshadow -Wunused
 CFLAGS += -ffunction-sections -fdata-sections
-#CFLAGS += -Wno-strict-aliasing -Wextra
+
+# Fun with inlines.  Why do we use them?  Lets let the compiler make these decisions for us by using -finline-functions instead.
+# https://gcc.gnu.org/ml/gcc-patches/2007-03/msg00702.html
+# https://gcc.gnu.org/onlinedocs/gcc-4.2.2/gcc/Inline.html#Inline -- Support planned for 4.3
+CFLAGS += -fgnu89-inline
+
+
+# Had to do this for FREE RTOS Code compilation issues on GCC 4.2
+CFLAGS += -fno-strict-aliasing
+
+#CFLAGS += -Wextra
 CFLAGS += -Wa,-adhlns=$(subst $(suffix $<),.lst,$<)
 CFLAGS += $(patsubst %,-I%,$(EXTRAINCDIRS))
 #AT91-lib warnings with:
@@ -604,32 +615,32 @@ gccversion :
 %.elf:  $(AOBJARM) $(AOBJ) $(COBJARM) $(COBJ) $(CPPOBJ) $(CPPOBJARM)
 	@echo
 	@echo $(MSG_LINKING) $@
-	@$(CC) $(THUMB) $(ALL_CFLAGS) $(AOBJARM) $(AOBJ) $(COBJARM) $(COBJ) $(CPPOBJ) $(CPPOBJARM) --output $@ $(LDFLAGS)
+	$(CC) $(THUMB) $(ALL_CFLAGS) $(AOBJARM) $(AOBJ) $(COBJARM) $(COBJ) $(CPPOBJ) $(CPPOBJARM) --output $@ $(LDFLAGS)
 #	$(CPP) $(THUMB) $(ALL_CFLAGS) $(AOBJARM) $(AOBJ) $(COBJARM) $(COBJ) $(CPPOBJ) $(CPPOBJARM) --output $@ $(LDFLAGS)
 
 # Compile: create object files from C source files. ARM/Thumb
 $(COBJ) : %.o : %.c
 	@echo
 	@echo $(MSG_COMPILING) $<
-	@$(CC) -c $(THUMB) $(ALL_CFLAGS) $(CONLYFLAGS) $< -o $@
+	$(CC) -c $(THUMB) $(ALL_CFLAGS) $(CONLYFLAGS) $< -o $@
 
 # Compile: create object files from C source files. ARM-only
 $(COBJARM) : %.o : %.c
 	@echo
 	@echo $(MSG_COMPILING_ARM) $<
-	@$(CC) -c $(ALL_CFLAGS) $(CONLYFLAGS) $< -o $@
+	$(CC) -c $(ALL_CFLAGS) $(CONLYFLAGS) $< -o $@
 
 # Compile: create object files from C++ source files. ARM/Thumb
 $(CPPOBJ) : %.o : %.cpp
 	@echo
 	@echo $(MSG_COMPILINGCPP) $<
-	@$(CPP) -c $(THUMB) $(ALL_CFLAGS) $(CPPFLAGS) $< -o $@
+	$(CPP) -c $(THUMB) $(ALL_CFLAGS) $(CPPFLAGS) $< -o $@
 
 # Compile: create object files from C++ source files. ARM-only
 $(CPPOBJARM) : %.o : %.cpp
 	@echo
 	@echo $(MSG_COMPILINGCPP_ARM) $<
-	@$(CPP) -c $(ALL_CFLAGS) $(CPPFLAGS) $< -o $@
+	$(CPP) -c $(ALL_CFLAGS) $(CPPFLAGS) $< -o $@
 
 
 # Compile: create assembler files from C source files. ARM/Thumb
@@ -642,14 +653,14 @@ $(CPPOBJARM) : %.o : %.cpp
 $(AOBJ) : %.o : %.S
 	@echo
 	@echo $(MSG_ASSEMBLING) $<
-	@$(CC) -c $(THUMB) $(ALL_ASFLAGS) $< -o $@
+	$(CC) -c $(THUMB) $(ALL_ASFLAGS) $< -o $@
 
 
 # Assemble: create object files from assembler source files. ARM-only
 $(AOBJARM) : %.o : %.S
 	@echo
 	@echo $(MSG_ASSEMBLING_ARM) $<
-	@$(CC) -c $(ALL_ASFLAGS) $< -o $@
+	$(CC) -c $(ALL_ASFLAGS) $< -o $@
 
 
 # Target: clean project.
