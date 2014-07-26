@@ -57,7 +57,7 @@ static int addFileDataStructToListIfNotPresent(struct file_data *ptr) {
     return i >= MAX_SIMULTANIOUS_FILES ? -1 : i;
 }
 
-static int open_new_file(struct file_data *fd, char *filename) {
+static int _open_file(struct file_data *fd, char *filename,) {
     pr_info("Creating new file ");
     pr_info(filename);
     pr_info("\r\n");
@@ -69,6 +69,7 @@ static int open_new_file(struct file_data *fd, char *filename) {
         fd->file_status |= FS_OPEN;
         fd->lastFlushTick = xTaskGetTickCount();
         addFileDataStructToListIfNotPresent(fd);
+        // TODO: Copy in filename to file_data struct here.
     } else {
         pr_warning("Failed to create file ");
         pr_warning(filename);
@@ -78,14 +79,16 @@ static int open_new_file(struct file_data *fd, char *filename) {
     return rc;
 }
 
-static int mount_fs() {
+static int mount_fs_if_needed() {
+    if (mount_status == FS_MOUNTED) return FR_OK;
+
     pr_info("Mounting Filesystem\r\n");
     const int rc = InitFS();
 
     if (FR_OK != rc) {
         pr_error("FS mount error\r\n");
     } else {
-    	mount_status = FS_MOUNTED;
+        mount_status = FS_MOUNTED;
     }
 
     return rc;
@@ -183,17 +186,18 @@ static void try_fs_recovery() {
 	}
 
 	unmount_fs();
-	int status = mount_fs();
+	const int status = mount_fs_if_needed();
+   if (status != FR_OK) {
+      pr_info("FS recovery op failed with value \"");
+      pr_info_int(status);
+      pr_info("\".\r\n");
+      return;
+   }
 
 	for (i = 0; i < MAX_SIMULTANIOUS_FILES; ++i) {
 		struct file_data *fd = logFileData[i];
 		if (fd == NULL) continue;
-
-		if (status == FR_OK) {
-			if (fd->file_status & FS_OPEN) open_file(fd);
-		} else {
-			close_file(fd);
-		}
+		if (fd->file_status & FS_OPEN) open_file(fd);
 	}
 }
 
@@ -207,7 +211,12 @@ int open_file(struct file_data *fd) {
     pr_info(fd->fPath);
     pr_info("\r\n");
 
-    const int rc = f_open(&(fd->file_handle), fd->fPath, FA_WRITE);
+    lock_spi();
+    int rc = mount_fs_if_needed();
+    if (FR_OK != rc) return rc;
+
+    rc = f_open(&(fd->file_handle), fd->fPath, FA_WRITE);
+    unlock_spi();
 
     if (FR_OK == rc) {
         fd->file_status |= FS_OPEN;
@@ -222,10 +231,18 @@ int open_file(struct file_data *fd) {
     return rc;
 }
 
+/*
+ * Note: All static ops are lockless.  You  are responsible for taking and releasing
+ *       the SPI lock as needed
+ */
+
 int close_file(struct file_data *fd) {
     pr_info("Closing \r\n");
 
+    lock_spi();
     const int rc = f_close(&(fd->file_handle));
+    unlock_spi();
+
     fd->file_status &= ~FS_OPEN; // Closed, even if failed.
 
     if (FR_OK != rc) {
@@ -236,11 +253,8 @@ int close_file(struct file_data *fd) {
 }
 
 int append_to_file(struct file_data *fd, const char *data) {
-    int status = FR_OK;
-    lock_spi();
 
-    if (mount_status != FS_MOUNTED) {
-        status = mount_fs();
+    int status = mount_fs_if_needed();
         if (FR_OK != status) goto out;
     }
 
