@@ -6,17 +6,17 @@
  */
 #include "logFileWriter.h"
 #include "task.h"
-#include "semphr.h"
+//#include "semphr.h"
 #include "modp_numtoa.h"
 #include "sdcard.h"
-#include "sampleRecord.h"
-#include "loggerHardware.h"
+//#include "sampleRecord.h"
+//#include "loggerHardware.h"
 #include "taskUtil.h"
 #include "mod_string.h"
 #include "printk.h"
 #include "spi.h"
-#include "channelMeta.h"
-#include "mem_mang.h"
+//#include "channelMeta.h"
+//#include "mem_mang.h"
 #include "LED.h"
 
 enum {
