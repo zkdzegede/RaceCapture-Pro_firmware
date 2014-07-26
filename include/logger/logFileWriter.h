@@ -17,11 +17,13 @@ struct file_data {
     portTickType lastFlushTick;
     char *pfx;
     char *sfx;
+
+    // Don't modify this.
     char fPath[MAX_FILENAME_LEN];
 };
 
 int close_file(struct file_data *fd);
-int open_file(struct file_data *fd);
+int open_file(struct file_data *fd, const char* path);
 int append_to_file(struct file_data *fd, const char *data);
 
 #endif /* _FILEWRITER_H_ */

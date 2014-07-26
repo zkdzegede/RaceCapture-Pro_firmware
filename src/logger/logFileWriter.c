@@ -2,7 +2,7 @@
  * fileWriter.c
  *
  *  Created on: Feb 29, 2012
- *      Author: brent
+ *      Author: brent, stieg
  */
 #include "logFileWriter.h"
 #include "task.h"
@@ -57,24 +57,48 @@ static int addFileDataStructToListIfNotPresent(struct file_data *ptr) {
     return i >= MAX_SIMULTANIOUS_FILES ? -1 : i;
 }
 
-static int _open_file(struct file_data *fd, char *filename,) {
-    pr_info("Creating new file ");
+
+static void _copy_filename(struct file_data *fd, char *filename) {
+   strlcpy(fd->fPath, filename, sizeof(fd->fPath));
+}
+
+static void _clear_filename(struct file_data *fd) {
+   fd->fPath[0] = '\0';
+}
+
+static int _open_file(struct file_data *fd, const char *filename, const int flags) {
+    pr_info("Opening log file ");
     pr_info(filename);
     pr_info("\r\n");
 
     const int rc = f_open(&(fd->file_handle), filename,
-    FA_WRITE | FA_CREATE_NEW);
+                          FA_WRITE | flags);
 
     if (FR_OK == rc) {
         fd->file_status |= FS_OPEN;
         fd->lastFlushTick = xTaskGetTickCount();
         addFileDataStructToListIfNotPresent(fd);
-        // TODO: Copy in filename to file_data struct here.
     } else {
-        pr_warning("Failed to create file ");
+        pr_warning("Failed to open file ");
         pr_warning(filename);
         pr_warning("\r\n");
     }
+
+    return rc;
+}
+
+static int _close_file(struct file_data *fd) {
+    pr_info("Closing \r\n");
+
+    const int rc = f_close(&(fd->file_handle));
+
+    // Close the file and clear the path, even if there was a failure.
+    fd->file_status &= ~FS_OPEN;
+    _clear_filename(fd);
+
+    // Also remove the file from the list of open file descriptors.
+    for (int i = 0; i < MAX_SIMULTANIOUS_FILES; ++i)
+       if (logFileData[i] == fd) logFileData[i] = NULL;
 
     return rc;
 }
@@ -98,7 +122,9 @@ static int mount_fs_if_needed() {
 static int unmount_fs() {
     pr_info("Un-mounting Filesystem\r\n");
     const int rc = UnmountFS();
-    mount_status = FS_UNMOUNTED; // If this fails, treat us as unmounted anyways.
+
+    // If this fails, treat us as unmounted anyways.
+    mount_status = FS_UNMOUNTED;
 
     if (FR_OK != rc) {
         pr_error("FS unmount error\r\n");
@@ -159,7 +185,7 @@ static int open_new_writeable_file(struct file_data *fd) {
             return result;
         }
 
-        rc = open_new_file(fd, buf);
+        rc = _open_file(fd, buf, FA_CREATE_NEW);
         if (FR_OK == rc) {
             pr_info("Successfully opened file \"");
             pr_info(buf);
@@ -167,7 +193,7 @@ static int open_new_writeable_file(struct file_data *fd) {
             pr_info_int((int )fd);
             pr_info("\r\n");
 
-            strcpy(fd->fPath, buf);
+            _copy_filename(fd, buf);
             break;
         }
     }
@@ -197,53 +223,34 @@ static void try_fs_recovery() {
 	for (i = 0; i < MAX_SIMULTANIOUS_FILES; ++i) {
 		struct file_data *fd = logFileData[i];
 		if (fd == NULL) continue;
-		if (fd->file_status & FS_OPEN) open_file(fd);
+		if (fd->file_status & FS_OPEN) _open_file(fd, fd->fPath, 0);
 	}
 }
 
-int open_file(struct file_data *fd) {
-    if (fd->fPath == NULL) {
-    	pr_warning("File Path is null.  Can't open.\r\n");
-    	return -1;
-    }
 
-    pr_info("Opening ");
-    pr_info(fd->fPath);
-    pr_info("\r\n");
+/*
+ * Note: All static ops assume the lock is held.  You  are responsible for taking and releasing
+ *       the SPI lock as needed in the non-static methods
+ */
 
+int open_file(struct file_data *fd, const char *path) {
     lock_spi();
+
     int rc = mount_fs_if_needed();
     if (FR_OK != rc) return rc;
 
-    rc = f_open(&(fd->file_handle), fd->fPath, FA_WRITE);
+    rc = _open_file(fd, path, 0);
+
     unlock_spi();
-
-    if (FR_OK == rc) {
-        fd->file_status |= FS_OPEN;
-        fd->lastFlushTick = xTaskGetTickCount();
-        addFileDataStructToListIfNotPresent(fd);
-    } else {
-        pr_warning("Failed to open file ");
-        pr_warning(fd->fPath);
-        pr_warning("\r\n");
-    }
-
     return rc;
 }
-
-/*
- * Note: All static ops are lockless.  You  are responsible for taking and releasing
- *       the SPI lock as needed
- */
 
 int close_file(struct file_data *fd) {
     pr_info("Closing \r\n");
 
     lock_spi();
-    const int rc = f_close(&(fd->file_handle));
+    const int rc = _close_file(fd);
     unlock_spi();
-
-    fd->file_status &= ~FS_OPEN; // Closed, even if failed.
 
     if (FR_OK != rc) {
         pr_warning("Failed to close file \r\n");
@@ -253,10 +260,11 @@ int close_file(struct file_data *fd) {
 }
 
 int append_to_file(struct file_data *fd, const char *data) {
+    lock_spi();
 
     int status = mount_fs_if_needed();
-        if (FR_OK != status) goto out;
-    }
+    if (FR_OK != status) goto out;
+
 
     if (!(fd->file_status & FS_OPEN)) {
         status = open_new_writeable_file(fd);
@@ -280,14 +288,14 @@ int append_to_file(struct file_data *fd, const char *data) {
         ++try;
     }
 
+    // XXX: Probably a better place for this
     if (isTimeoutMs(fd->lastFlushTick, MAX_SYNC_INTERVAL_MS)) {
         status = sync_file(fd);
         if (FR_OK != status) goto out;
     }
 
-    out:
+out:
     unlock_spi();
     status == FR_OK ? clear_fs_error() : set_fs_error();
     return status;
 }
-
