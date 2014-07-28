@@ -80,6 +80,7 @@ CPPFLAGS = -m32 -g $(INCLUDES) -DRCP_TESTING -DMAJOR_REV=$(MAJOR) -DMINOR_REV=$(
 
 T_SRC = loggerApi_test.cpp \
 		loggerConfig_test.cpp \
+		logFileWriter_test.cpp \
 		sampleRecord_test.cpp \
 		PredictiveTimeTest2.cpp \
 		sector_test.cpp \
@@ -91,6 +92,8 @@ T_SRC = loggerApi_test.cpp \
 SRC = 	mock_uart.c \
 		mock_usb_comm.c \
 		mock_serial.c \
+		task.c \
+		taskUtil.c \
 		$(MOCK_DIR)/util/taskUtil_mock.c \
 		$(RCP_SRC)/lua/luaScript.c \
 		$(RCP_SRC)/util/modp_numtoa.c \
@@ -103,6 +106,7 @@ SRC = 	mock_uart.c \
 		$(RCP_SRC)/logging/ring_buffer.c \
 		$(SAM7S_SRC)/serial/serial.c \
 		$(RCP_SRC)/logger/loggerApi.c \
+		$(RCP_SRC)/logger/logFileWriter.c \
 		$(RCP_SRC)/filter/filter.c \
 		$(RCP_SRC)/imu/imu.c \
 		$(RCP_SRC)/ADC/ADC.c \
