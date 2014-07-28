@@ -19,8 +19,9 @@
 //#include "mem_mang.h"
 #include "LED.h"
 
-enum {
-    FS_UNMOUNTED, FS_MOUNTED
+enum _mount_status {
+    FS_UNMOUNTED,
+    FS_MOUNTED
 } mount_status;
 
 #define MAX_FILE_INDEX                          99999
@@ -58,7 +59,7 @@ static int addFileDataStructToListIfNotPresent(struct file_data *ptr) {
 }
 
 
-static void _copy_filename(struct file_data *fd, char *filename) {
+static void _copy_filename(struct file_data *fd, const char *filename) {
    strlcpy(fd->fPath, filename, sizeof(fd->fPath));
 }
 
@@ -187,7 +188,7 @@ static int open_new_writeable_file(struct file_data *fd) {
 
         rc = _open_file(fd, buf, FA_CREATE_NEW);
         if (FR_OK == rc) {
-            pr_info("Successfully opened file \"");
+            pr_info("Successfully opened new file \"");
             pr_info(buf);
             pr_info("\".  Associated with file_data struct ");
             pr_info_int((int )fd);
@@ -240,8 +241,18 @@ int open_file(struct file_data *fd, const char *path) {
     if (FR_OK != rc) return rc;
 
     rc = _open_file(fd, path, 0);
-
     unlock_spi();
+
+    if (FR_OK == rc) {
+       pr_info("Successfully opened file \"");
+       pr_info(path);
+       pr_info("\".  Associated with file_data struct ");
+       pr_info_int((int )fd);
+       pr_info("\r\n");
+
+       _copy_filename(fd, path);
+    }
+
     return rc;
 }
 
@@ -260,6 +271,8 @@ int close_file(struct file_data *fd) {
 }
 
 int append_to_file(struct file_data *fd, const char *data) {
+    int cnt = 1;
+
     lock_spi();
 
     int status = mount_fs_if_needed();
@@ -271,13 +284,12 @@ int append_to_file(struct file_data *fd, const char *data) {
         if (FR_OK != status) goto out;
     }
 
-    int try = 1;
     while (1) {
         status = f_puts(data, &(fd->file_handle));
 
         if (FR_OK == status) break;
 
-        if (try >= MAX_WRITE_ATTEMPTS) {
+        if (cnt >= MAX_WRITE_ATTEMPTS) {
             pr_warning("Failed to write data with err code ");
             pr_warning_int(status);
             pr_warning("\r\n");
@@ -285,7 +297,7 @@ int append_to_file(struct file_data *fd, const char *data) {
         }
 
         try_fs_recovery();
-        ++try;
+        ++cnt;
     }
 
     // XXX: Probably a better place for this
