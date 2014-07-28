@@ -7,7 +7,7 @@
 
 #define MAX_FILENAME_LEN					    32
 
-enum {
+enum fStatus {
     FS_OPEN = FLAG_BIT(0),
 };
 
@@ -15,8 +15,8 @@ struct file_data {
     FIL file_handle;
     int file_status;
     portTickType lastFlushTick;
-    char *pfx;
-    char *sfx;
+    const char *pfx;
+    const char *sfx;
 
     // Don't modify this.
     char fPath[MAX_FILENAME_LEN];
