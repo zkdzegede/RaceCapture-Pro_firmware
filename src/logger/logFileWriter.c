@@ -44,6 +44,23 @@ static void clear_fs_error() {
     LED_disable(3);
 }
 
+static int sync_file(struct file_data *fd) {
+	if (! (fd->file_status & FS_OPEN)) {
+		return -1;
+	}
+
+    const int res = f_sync(&(fd->file_handle));
+
+    if (FR_OK != res) {
+        pr_debug_int(res);
+        pr_debug(" = flush error\r\n");
+    } else {
+        fd->lastFlushTick = xTaskGetTickCount();
+    }
+
+    return res;
+}
+
 static int addFileDataStructToListIfNotPresent(struct file_data *ptr) {
     int i;
 
@@ -89,13 +106,17 @@ static int _open_file(struct file_data *fd, const char *filename, const int flag
 }
 
 static int _close_file(struct file_data *fd) {
-    pr_info("Closing \r\n");
+    pr_info("Closing \"");
+    pr_info(fd->fPath);
+    pr_info("\"\r\n");
 
+	 sync_file(fd);
     const int rc = f_close(&(fd->file_handle));
 
     // Close the file and clear the path, even if there was a failure.
     fd->file_status &= ~FS_OPEN;
     _clear_filename(fd);
+    memset(&(fd->file_handle), 0, sizeof(fd->file_handle)); // Reset the object
 
     // Also remove the file from the list of open file descriptors.
     for (int i = 0; i < MAX_SIMULTANIOUS_FILES; ++i)
@@ -134,23 +155,6 @@ static int unmount_fs() {
     return rc;
 }
 
-
-static int sync_file(struct file_data *fd) {
-	if (! (fd->file_status & FS_OPEN)) {
-		return -1;
-	}
-
-    const int res = f_sync(&(fd->file_handle));
-
-    if (FR_OK != res) {
-        pr_debug_int(res);
-        pr_debug(" = flush error\r\n");
-    } else {
-        fd->lastFlushTick = xTaskGetTickCount();
-    }
-
-    return res;
-}
 
 static int create_filename(char *buf, size_t size, const char *pfx, const char *sfx,
         int num) {
@@ -209,6 +213,7 @@ static void try_fs_recovery() {
 	for (i = 0; i < MAX_SIMULTANIOUS_FILES; ++i) {
 		struct file_data *fd = logFileData[i];
 		if (fd == NULL) continue;
+		f_sync(&(fd->file_handle));
 		f_close(&(fd->file_handle));
 	}
 
@@ -257,8 +262,6 @@ int open_file(struct file_data *fd, const char *path) {
 }
 
 int close_file(struct file_data *fd) {
-    pr_info("Closing \r\n");
-
     lock_spi();
     const int rc = _close_file(fd);
     unlock_spi();
@@ -285,6 +288,7 @@ int append_to_file(struct file_data *fd, const char *data) {
     }
 
     while (1) {
+       // Use f_write here?
         status = f_puts(data, &(fd->file_handle));
 
         if (FR_OK == status) break;

@@ -38,6 +38,14 @@ void LogFileWriterTest::testFileOpen()
   close_file(&fd);
 }
 
+static int testZeroed(void *data, size_t len) {
+  char *cData = (char *) data;
+
+  while (len-- > 0)
+    if (*cData++ != 0) return 0;
+
+  return 1;
+}
 
 void LogFileWriterTest::testFileClose()
 {
@@ -49,7 +57,7 @@ void LogFileWriterTest::testFileClose()
   CPPUNIT_ASSERT(isMounted());
   CPPUNIT_ASSERT_EQUAL((int) FR_OK, rc);
   CPPUNIT_ASSERT(fd.file_status & FS_OPEN);
-
+  //CPPUNIT_ASSERT(testZeroed(&(fd.file_handle), sizeof(fd.file_handle)));
   rc = close_file(&fd);
 
   CPPUNIT_ASSERT(isMounted());
