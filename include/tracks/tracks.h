@@ -32,19 +32,16 @@ typedef struct _Circuit{
 } Circuit;
 
 typedef struct _Stage{
-	GeoPoint start;
-	GeoPoint sectors[STAGE_SECTOR_COUNT];
-	GeoPoint finish;
+   GeoPoint start;
+   GeoPoint finish;
+	GeoPoint sectors[CIRCUIT_SECTOR_COUNT];
 } Stage;
-
 
 typedef struct _Track{
 	enum TrackType track_type;
 	union{
-		GeoPoint allSectors[SECTOR_COUNT];
-		Stage stage;
 		Circuit circuit;
-		GeoPoint startLine;
+      Stage stage;
 	};
 } Track;
 
@@ -59,6 +56,11 @@ int flash_tracks(const Tracks *source, size_t rawSize);
 int add_track(const Track *track, size_t index, int mode);
 int flash_default_tracks(void);
 const Tracks * get_tracks();
+
+/**
+ * @return true if the given point is valid, false otherwise.
+ */
+int isValidPoint(const GeoPoint *p);
 
 /**
  * Returns the finish point of the track, regardless if its a stage or a circuit.
@@ -83,5 +85,10 @@ GeoPoint getStartPoint(const Track *t);
  * @return true if its a real value, false otherwise.
  */
 int isStartPointValid(const Track *t);
+
+/**
+ * @return The starting point of the vector of Sectors for this track.
+ */
+GeoPoint * getSectorVector(const Track *t);
 
 #endif /* TRACKS_H_ */

@@ -83,6 +83,10 @@ static int isStage(const Track *t) {
    return t->track_type == TRACK_TYPE_STAGE;
 }
 
+int isValidPoint(const GeoPoint *p) {
+   return p->latitude && p->longitude;
+}
+
 GeoPoint getFinishPoint(const Track *t) {
    return isStage(t) ? t->stage.finish : t->circuit.startFinish;
 }
@@ -92,11 +96,11 @@ int isFinishPointValid(const Track *t) {
       return 0;
 
    const GeoPoint p = getFinishPoint(t);
-   return p.latitude && p.longitude;
+   return isValidPoint(&p);
 }
 
 GeoPoint getStartPoint(const Track *t) {
-   return t->startLine;
+   return isStage(t) ? t->stage.start : t->circuit.startFinish;
 }
 
 int isStartPointValid(const Track *t) {
@@ -104,5 +108,9 @@ int isStartPointValid(const Track *t) {
       return 0;
 
    const GeoPoint p = getStartPoint(t);
-   return p.latitude && p.longitude;
+   return isValidPoint(&p);
+}
+
+GeoPoint* getSectorVector(const Track *t) {
+   return isStage(t) ? t->stage.sectors : t->circuit.sectors;
 }

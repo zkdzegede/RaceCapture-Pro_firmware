@@ -489,7 +489,7 @@ static int processStartFinish(const Track *track, float targetRadius) {
                g_lastLapTime = lapTime;
                g_lastStartFinishTimestamp = currentTimestamp;
                lapDetected = 1;
-               g_sector = 1;
+               g_sector = 0;
             }
          }
       }
@@ -501,15 +501,15 @@ static int processStartFinish(const Track *track, float targetRadius) {
 }
 
 static void processSector(const Track *track, float targetRadius) {
-   const GeoPoint *upcomingSectorPoint = (track->allSectors + g_sector);
-   if (upcomingSectorPoint->latitude != 0
-         && upcomingSectorPoint->longitude != 0) { //valid sector target?
+   const GeoPoint *upcomingSectorPoint = (getSectorVector(track) + g_sector);
+
+   if (isValidPoint(upcomingSectorPoint)) { //valid sector target?
       g_atTarget = withinGpsTarget(upcomingSectorPoint, targetRadius);
       if (g_atTarget) {
          if (g_prevAtTarget == 0) { //latching effect, to avoid double triggering
             //first sector references from start finish; subsequent sectors reference from last sector timestamp
             float fromTimestamp =
-                  g_sector == 1 ?
+                  g_sector == 0 ?
                         g_lastStartFinishTimestamp : g_lastSectorTimestamp;
 
             if (fromTimestamp != 0) {
@@ -520,17 +520,18 @@ static void processSector(const Track *track, float targetRadius) {
                //set some channel values now
                g_lastSectorTime = elapsed / 60.0;
 
-               if (g_sector == 1) {
-                  g_lastSector = 1;
+               if (g_sector == 0) {
+                  g_lastSector = 0;
                } else {
                   g_lastSector++;
                }
                g_sector++;
+
                const GeoPoint *nextSector = (track->allSectors + g_sector);
-               if (g_sector >= SECTOR_COUNT || nextSector->latitude == 0
-                     || nextSector->longitude == 0) {
-                  g_sector = 0; //loop to the start finish line as the last sector
-               }
+               if (g_sector >= SECTOR_COUNT || isValidPoint(nextSector))
+                  //loop to the start finish line as the last sector
+                  g_sector = 0;
+
             }
          }
          g_prevAtTarget = 1;
