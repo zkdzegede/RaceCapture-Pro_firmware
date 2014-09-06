@@ -111,6 +111,23 @@ int isStartPointValid(const Track *t) {
    return isValidPoint(&p);
 }
 
-GeoPoint* getSectorVector(const Track *t) {
-   return isStage(t) ? t->stage.sectors : t->circuit.sectors;
+GeoPoint getSectorGeoPointAtIndex(const Track *t, const int index) {
+   const int max = isStage(t) ? STAGE_SECTOR_COUNT : CIRCUIT_SECTOR_COUNT;
+
+   GeoPoint *sectors = t->circuit.sectors;
+
+   /*
+   if (isStage(t))
+      sectors = t->stage.sectors;
+   */
+
+   if (index < max && isValidPoint(sectors + index))
+      return sectors[index];
+
+   // If here, return the finish since that is logically the next sector point.
+   return getFinishPoint(t);
+}
+
+int areGeoPointsEqual(const GeoPoint a, const GeoPoint b) {
+   return a.latitude == b.latitude && a.longitude == b.longitude;
 }

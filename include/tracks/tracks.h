@@ -34,14 +34,15 @@ typedef struct _Circuit{
 typedef struct _Stage{
    GeoPoint start;
    GeoPoint finish;
-	GeoPoint sectors[CIRCUIT_SECTOR_COUNT];
+	GeoPoint sectors[STAGE_SECTOR_COUNT];
 } Stage;
 
 typedef struct _Track{
 	enum TrackType track_type;
 	union{
-		Circuit circuit;
+      GeoPoint allSectors[SECTOR_COUNT]; // Needed for Loading in data.
       Stage stage;
+		Circuit circuit;
 	};
 } Track;
 
@@ -87,8 +88,11 @@ GeoPoint getStartPoint(const Track *t);
 int isStartPointValid(const Track *t);
 
 /**
- * @return The starting point of the vector of Sectors for this track.
+ * @return The GeoPoint of the next sectory boundary at the given index.
+ *         This may be the Finish line.
  */
-GeoPoint * getSectorVector(const Track *t);
+GeoPoint getSectorGeoPointAtIndex(const Track *t, const int index);
+
+int areGeoPointsEqual(const GeoPoint a, const GeoPoint b);
 
 #endif /* TRACKS_H_ */

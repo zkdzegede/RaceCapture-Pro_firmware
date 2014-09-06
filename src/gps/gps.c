@@ -63,6 +63,7 @@ static float g_lastSectorTimestamp;
 
 static int g_sector;
 static int g_lastSector;
+
 static float g_lastLapTime;
 static float g_lastSectorTime;
 
@@ -501,44 +502,40 @@ static int processStartFinish(const Track *track, float targetRadius) {
 }
 
 static void processSector(const Track *track, float targetRadius) {
-   const GeoPoint *upcomingSectorPoint = (getSectorVector(track) + g_sector);
+   GeoPoint point = getSectorGeoPointAtIndex(track, g_sector);
 
-   if (isValidPoint(upcomingSectorPoint)) { //valid sector target?
-      g_atTarget = withinGpsTarget(upcomingSectorPoint, targetRadius);
-      if (g_atTarget) {
-         if (g_prevAtTarget == 0) { //latching effect, to avoid double triggering
-            //first sector references from start finish; subsequent sectors reference from last sector timestamp
-            float fromTimestamp =
-                  g_sector == 0 ?
-                        g_lastStartFinishTimestamp : g_lastSectorTimestamp;
+   if (g_lastSectorTimestamp == 0)
+      g_lastSectorTimestamp = getSecondsSinceFirstFix();
 
-            if (fromTimestamp != 0) {
-               float currentTimestamp = getSecondsSinceMidnight();
-               float elapsed = getTimeDiff(fromTimestamp, currentTimestamp);
-               g_lastSectorTimestamp = currentTimestamp;
-
-               //set some channel values now
-               g_lastSectorTime = elapsed / 60.0;
-
-               if (g_sector == 0) {
-                  g_lastSector = 0;
-               } else {
-                  g_lastSector++;
-               }
-               g_sector++;
-
-               const GeoPoint *nextSector = (track->allSectors + g_sector);
-               if (g_sector >= SECTOR_COUNT || isValidPoint(nextSector))
-                  //loop to the start finish line as the last sector
-                  g_sector = 0;
-
-            }
-         }
-         g_prevAtTarget = 1;
-      } else {
-         g_prevAtTarget = 0;
-      }
+   g_atTarget = withinGpsTarget(&point, targetRadius);
+   if (!g_atTarget) {
+      g_prevAtTarget = 0;
+      return;
    }
+
+   // Latch here to prevent duplicate entries.
+   if (g_prevAtTarget != 0)
+      return;
+
+   g_prevAtTarget = 1;
+
+
+   /*
+    * Past here we are sure we are at a sector boundary and haven't counted twice.
+    */
+
+   float currentTimestamp = getSecondsSinceFirstFix();
+   float elapsed = getTimeDiff(g_lastSectorTimestamp, currentTimestamp);
+
+   g_lastSectorTimestamp = currentTimestamp;
+   g_lastSectorTime = elapsed / 60.0;
+   g_lastSector = g_sector;
+   ++g_sector;
+
+   // Check if we need to wrap the sectors.
+   GeoPoint next = getSectorGeoPointAtIndex(track, g_sector);
+   if (areGeoPointsEqual(point, next))
+      g_sector = 0;
 }
 
 void gpsConfigChanged(void) {
@@ -621,10 +618,10 @@ void onLocationUpdated() {
 
    const float targetRadius = config->TrackConfigs.radius;
 
-   if (sectorEnabled)
-      processSector(g_activeTrack, targetRadius);
-
    if (startFinishEnabled) {
+      if (sectorEnabled)
+         processSector(g_activeTrack, targetRadius);
+
       // Seconds since first fix is good until we alter the code to use millis directly
       const float secondsSinceFirstFix = getSecondsSinceFirstFix();
       const int lapDetected = processStartFinish(g_activeTrack, targetRadius);
