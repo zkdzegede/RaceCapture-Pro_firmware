@@ -116,10 +116,8 @@ GeoPoint getSectorGeoPointAtIndex(const Track *t, const int index) {
 
    GeoPoint *sectors = t->circuit.sectors;
 
-   /*
    if (isStage(t))
       sectors = t->stage.sectors;
-   */
 
    if (index < max && isValidPoint(sectors + index))
       return sectors[index];
