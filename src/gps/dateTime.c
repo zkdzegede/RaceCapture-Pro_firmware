@@ -95,3 +95,16 @@ long getTimeDeltaInMillis(DateTime a, DateTime b) {
    return getMillisecondsSinceUnixEpoch(a) - getMillisecondsSinceUnixEpoch(b);
 }
 
+static int inRange(const int val, const int min, const int max) {
+   return val >= min && val <= max;
+}
+
+int isValidDateTime(const DateTime dt) {
+   return inRange(dt.millisecond, 0, 999) &&
+      inRange(dt.second, 0, 59) &&
+      inRange(dt.minute, 0, 59) &&
+      inRange(dt.hour, 0, 23) &&
+      inRange(dt.day, 1, 31) &&
+      inRange(dt.month, 1, 12) &&
+      inRange(dt.partialYear, 0, 99); // We only support 1970 - 2069.
+}

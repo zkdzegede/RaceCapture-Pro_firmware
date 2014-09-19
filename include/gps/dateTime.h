@@ -25,4 +25,5 @@ typedef struct _DateTime {
 
 unsigned long getMillisecondsSinceUnixEpoch(DateTime dt);
 long getTimeDeltaInMillis(DateTime a, DateTime b);
+int isValidDateTime(const DateTime dt);
 #endif //__DATE_TIME_H__
