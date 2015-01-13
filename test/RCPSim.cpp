@@ -14,7 +14,8 @@
 #include "task.h"
 #include "fileWriter.h"
 #include "connectivityTask.h"
-#include "loggerTaskEx.h"0
+#include "loggerTaskEx.h"
+#include "gpioTasks.h"
 
 #define LINE_BUFFER_SIZE 2049
 
@@ -37,9 +38,11 @@ int main(int argc, char* argv[])
 	//	setupMockSerial();
 	imu_init(config);
 	resetPredictiveTimer();
-   startFileWriterTask		( FILE_WRITER_TASK_PRIORITY );
-   startLoggerTaskEx		( LOGGER_TASK_PRIORITY );
-   startConnectivityTask	( CONNECTIVITY_TASK_PRIORITY );
+	startGPIOTasks			( GPIO_TASK_PRIORITY);
+	startFileWriterTask		( FILE_WRITER_TASK_PRIORITY );
+	startLoggerTaskEx		( LOGGER_TASK_PRIORITY );
+	startConnectivityTask	( CONNECTIVITY_TASK_PRIORITY );
+   
    
    /* Set the scheduler running.  This function will not return unless a task calls vTaskEndScheduler(). */
    vTaskStartScheduler();

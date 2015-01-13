@@ -131,6 +131,7 @@ SRC = 	mock_uart.c \
 		$(RCP_SRC)/GPIO/GPIO.c \
 		$(RCP_SRC)/watchdog/watchdog.c \
 		$(RCP_SRC)/CAN/CAN.c \
+      $(RCP_SRC)/GPIO/gpioTasks.c \
 		$(MOCK_DIR)/util/taskUtil_mock.c \
 		$(MOCK_DIR)/bluetooth_mock.c \
 		$(MOCK_DIR)/sim900_mock.c \
