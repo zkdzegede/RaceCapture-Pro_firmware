@@ -1,8 +1,9 @@
+#include <stdio.h>
 #include "sdcard.h"
 
-
-void TestSDWrite(Serial *serial, int lines,int doFlush, int quiet, int delay){
-
+void TestSDWrite(Serial *serial, int lines,int doFlush, int quiet)
+{
+   printf("TestSDWrite %d\r\n", serial);
 }
 
 void InitFSHardware(void){
