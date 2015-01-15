@@ -16,6 +16,10 @@ GPS_DIR=gps
 UTIL_DIR=util
 BUILD_DIR=build
 FREERTOS_DIR=FreeRTOS_Kernel
+LUA_LIBS=lua
+LUA_LIB_DIR=$(RCP_BASE)/lib_lua/src
+
+LIBS = $(addprefix -l,$(LUA_LIBS))
 
 INCLUDES = 	-I. \
 		-I./include \
@@ -64,7 +68,8 @@ INCLUDES = 	-I. \
 		-I$(UTIL_DIR) \
 		-I$(FREERTOS_DIR)/include \
 		-I$(FREERTOS_DIR)/portable/GCC/Posix \
-		-I$(FREERTOS_DIR)/AsyncIO/
+		-I$(FREERTOS_DIR)/AsyncIO \
+      -I$(RCP_BASE)/lib_lua/src
 
 # set up compiler and options
 CXX = g++
@@ -106,19 +111,24 @@ T_SRC = loggerApi_test.cpp \
 		$(UTIL_DIR)/atonum_test.cpp
 
 SRC = 	mock_uart.c \
-		mock_usb_comm.c \
 		mock_serial.c \
+      $(SAM7S_SRC)/gps_mtk/gps_device_mtk3339.c \
 		$(RCP_SRC)/devices/null_device.c \
+      $(RCP_SRC)/command/command.c \
+      $(RCP_SRC)/command/baseCommands.c \
 		$(RCP_SRC)/launch_control.c \
 		$(RCP_SRC)/lua/luaScript.c \
+      $(RCP_SRC)/lua/luaCommands.c \
 		$(RCP_SRC)/util/modp_numtoa.c \
 		$(RCP_SRC)/util/modp_atonum.c \
 		$(RCP_SRC)/util/mod_string.c \
 		$(RCP_SRC)/jsmn/jsmn.c \
 		$(RCP_SRC)/api/api.c \
+      $(RCP_SRC)/messaging/messaging.c \
 		$(RCP_SRC)/OBD2/OBD2.c \
 		$(RCP_SRC)/logging/ring_buffer.c \
 		$(RCP_SRC)/logger/loggerApi.c \
+      $(RCP_SRC)/logger/loggerCommands.c \
 		$(RCP_SRC)/filter/filter.c \
 		$(RCP_SRC)/imu/imu.c \
 		$(RCP_SRC)/ADC/ADC.c \
@@ -132,7 +142,8 @@ SRC = 	mock_uart.c \
 		$(RCP_SRC)/watchdog/watchdog.c \
 		$(RCP_SRC)/CAN/CAN.c \
       $(RCP_SRC)/GPIO/gpioTasks.c \
-		$(MOCK_DIR)/util/taskUtil_mock.c \
+		$(MOCK_DIR)/usb_comm_mock.c \
+      $(MOCK_DIR)/util/taskUtil_mock.c \
 		$(MOCK_DIR)/bluetooth_mock.c \
 		$(MOCK_DIR)/sim900_mock.c \
 		$(MOCK_DIR)/printk_mock.c \
@@ -158,6 +169,7 @@ SRC = 	mock_uart.c \
 		$(RCP_SRC)/virtual_channel/virtual_channel.c \
 		$(RCP_SRC)/tracks/tracks.c \
 		$(RCP_SRC)/gps/gps.c \
+      $(RCP_SRC)/gps/gpsTask.c \
 		$(RCP_SRC)/gps/dateTime.c \
 		$(RCP_SRC)/gps/geopoint.c \
 		$(RCP_SRC)/gps/geoCircle.c \
@@ -185,10 +197,10 @@ OBJ_SIM = $(addprefix build/, $(addsuffix .o, $(subst $(RCP_BASE)/, rcp_base/, $
 all: test sim
 
 test: $(OBJ_TEST)
-	$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ_TEST) -lm -lcppunit -lrt -pthread
+	$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ_TEST) -L$(LUA_LIB_DIR) $(LIBS) -lm -lcppunit -lrt -pthread
 
 sim: $(OBJ_SIM)
-	$(CXX) $(CXXFLAGS) -o $(SIMNAME) $(OBJ_SIM) -lm -lrt -pthread
+	$(CXX) $(CXXFLAGS) -o $(SIMNAME) $(OBJ_SIM) -L$(LUA_LIB_DIR) $(LIBS) -lm -lrt -pthread
 
 clean:
 	rm -f $(OBJ_TEST) $(OBJ_SIM) $(NAME) $(SIMNAME)

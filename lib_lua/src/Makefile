@@ -26,7 +26,11 @@ ifeq ($(PLAT), stm32)
 	RANLIB= arm-none-eabi-ranlib
 	
 else
-$(error please specify PLAT=stm32 or PLAT=sam7s)
+#$(error please specify PLAT=stm32 or PLAT=sam7s)
+   CC = g++
+	CFLAGS= -m32 -ggdb -Os -Wall $(MYCFLAGS) -fpermissive -DLUA_OPTIMIZE_MEMORY=2
+	AR = ar rcu
+	RANLIB= ranlib
 endif
 endif
 
