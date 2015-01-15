@@ -16,6 +16,9 @@
 #include "connectivityTask.h"
 #include "loggerTaskEx.h"
 #include "gpioTasks.h"
+#include "luaTask.h"
+#include "gpsTask.h"
+#include "usb_comm.h"
 
 #define LINE_BUFFER_SIZE 2049
 
@@ -38,11 +41,13 @@ int main(int argc, char* argv[])
 	//	setupMockSerial();
 	imu_init(config);
 	resetPredictiveTimer();
-	startGPIOTasks			( GPIO_TASK_PRIORITY);
+	startGPIOTasks			   ( GPIO_TASK_PRIORITY);
+	startUSBCommTask		   ( USB_COMM_TASK_PRIORITY );
+   startLuaTask			   ( LUA_TASK_PRIORITY );
 	startFileWriterTask		( FILE_WRITER_TASK_PRIORITY );
-	startLoggerTaskEx		( LOGGER_TASK_PRIORITY );
 	startConnectivityTask	( CONNECTIVITY_TASK_PRIORITY );
-   
+   startLoggerTaskEx		   ( LOGGER_TASK_PRIORITY );
+   startGPSTask			   ( GPS_TASK_PRIORITY );
    
    /* Set the scheduler running.  This function will not return unless a task calls vTaskEndScheduler(). */
    vTaskStartScheduler();
