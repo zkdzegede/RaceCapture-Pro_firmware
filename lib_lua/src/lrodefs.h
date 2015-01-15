@@ -1,5 +1,10 @@
 /* Read-only tables helper */
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
+
 #undef LUA_REG_TYPE
 #undef LSTRKEY
 #undef LNILKEY
@@ -32,3 +37,6 @@
   return 1
 #endif
 
+#ifdef __cpluplus
+}
+#endif

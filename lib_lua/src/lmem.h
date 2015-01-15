@@ -13,6 +13,11 @@
 #include "llimits.h"
 #include "lua.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
+
 #define MEMERRMSG	"not enough memory"
 
 
@@ -44,6 +49,10 @@ LUAI_FUNC void *luaM_toobig (lua_State *L);
 LUAI_FUNC void *luaM_growaux_ (lua_State *L, void *block, int *size,
                                size_t size_elem, int limit,
                                const char *errormsg);
+
+#ifdef __cpluplus
+}
+#endif
 
 #endif
 

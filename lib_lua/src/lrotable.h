@@ -7,6 +7,11 @@
 #include "llimits.h"
 #include "lauxlib.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
+
 typedef lua_Number luaR_result;
 
 // A number entry in the read only table
@@ -27,5 +32,9 @@ typedef struct
 luaR_result luaR_findglobal(const char *key, lu_byte *ptype);
 int luaR_findfunction(lua_State *L, const luaL_reg *ptable);
 luaR_result luaR_findentry(void *data, const char *key, lu_byte *ptype);
+
+#ifdef __cpluplus
+}
+#endif
 
 #endif

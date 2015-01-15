@@ -12,6 +12,10 @@
 #include "lstate.h"
 #include "lzio.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 
 #define luaD_checkstack(L,n)	\
   if ((char *)L->stack_last - (char *)L->top <= (n)*(int)sizeof(TValue)) \
@@ -52,6 +56,10 @@ LUAI_FUNC void luaD_throw (lua_State *L, int errcode);
 LUAI_FUNC int luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud);
 
 LUAI_FUNC void luaD_seterrorobj (lua_State *L, int errcode, StkId oldtop);
+
+#ifdef __cpluplus
+}
+#endif
 
 #endif
 

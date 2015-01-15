@@ -10,7 +10,14 @@
 
 #include "lobject.h"
 
-
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 LUAI_FUNC void luaA_pushobject (lua_State *L, const TValue *o);
+
+#ifdef __cpluplus
+}
+#endif
 
 #endif

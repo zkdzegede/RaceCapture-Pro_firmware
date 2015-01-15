@@ -30,10 +30,11 @@ static const luaL_Reg lualibs[] = {
 /* The read-only tables are defined here */
 extern const luaL_Reg mathlib[];
 extern const luaR_value_entry mathlib_vals[];
-extern const luaL_Reg syslib[];
-extern const luaL_Reg tab_funcs[];
-extern const luaL_Reg dblib[];
-extern const luaL_Reg co_funcs[];
+extern "C" const luaL_Reg syslib[];
+extern "C" const luaL_Reg tab_funcs[];
+extern "C" const luaL_Reg dblib[];
+extern "C" const luaL_Reg co_funcs[];
+extern "C" const luaR_table lua_rotable[];
 const luaR_table lua_rotable[] = 
 {
 #if LUA_OPTIMIZE_MEMORY > 0

@@ -9,6 +9,10 @@
 
 #include "lobject.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 
 #define gnode(t,i)	(&(t)->node[i])
 #define gkey(n)		(&(n)->i_key.nk)
@@ -36,5 +40,8 @@ LUAI_FUNC Node *luaH_mainposition (const Table *t, const TValue *key);
 LUAI_FUNC int luaH_isdummy (Node *n);
 #endif
 
+#ifdef __cpluplus
+}
+#endif
 
 #endif

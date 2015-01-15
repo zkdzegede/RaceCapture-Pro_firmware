@@ -371,7 +371,7 @@ static int db_errorfb (lua_State *L) {
 }
 
 
-const luaL_Reg dblib[] = {
+extern "C" const luaL_Reg dblib[] = {
   {"debug", db_debug},
   {"getfenv", db_getfenv},
   {"gethook", db_gethook},

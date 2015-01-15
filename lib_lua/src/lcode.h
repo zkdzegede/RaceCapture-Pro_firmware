@@ -12,6 +12,10 @@
 #include "lopcodes.h"
 #include "lparser.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 
 /*
 ** Marks the end of a patch list. It is an invalid value both as an absolute
@@ -72,5 +76,8 @@ LUAI_FUNC void luaK_infix (FuncState *fs, BinOpr op, expdesc *v);
 LUAI_FUNC void luaK_posfix (FuncState *fs, BinOpr op, expdesc *v1, expdesc *v2);
 LUAI_FUNC void luaK_setlist (FuncState *fs, int base, int nelems, int tostore);
 
+#ifdef __cpluplus
+}
+#endif
 
 #endif

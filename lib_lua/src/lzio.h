@@ -12,6 +12,10 @@
 
 #include "lmem.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 
 #define EOZ	(-1)			/* end of stream */
 
@@ -63,5 +67,9 @@ struct Zio {
 
 
 LUAI_FUNC int luaZ_fill (ZIO *z);
+
+#ifdef __cpluplus
+}
+#endif
 
 #endif

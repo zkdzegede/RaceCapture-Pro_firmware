@@ -10,7 +10,7 @@
 #define LUAR_FINDVALUE        1
 
 /* Externally defined read-only table array */
-extern const luaR_table lua_rotable[];
+extern "C" const luaR_table lua_rotable[];
 
 /* Find a global "read only table" in the constant lua_rotable array */
 luaR_result luaR_findglobal(const char *name, lu_byte *ptype) {

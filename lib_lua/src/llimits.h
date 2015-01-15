@@ -14,6 +14,10 @@
 
 #include "lua.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 
 typedef LUAI_UINT32 lu_int32;
 
@@ -123,6 +127,10 @@ typedef lu_int32 Instruction;
 #define condhardstacktests(x)	((void)0)
 #else
 #define condhardstacktests(x)	x
+#endif
+
+#ifdef __cpluplus
+}
 #endif
 
 #endif

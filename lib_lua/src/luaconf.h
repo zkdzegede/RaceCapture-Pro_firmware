@@ -11,6 +11,10 @@
 #include <limits.h>
 #include <stddef.h>
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 
 /*
 ** ==================================================================
@@ -784,6 +788,10 @@ union luai_Cast { double l_d; long l_l; };
 
 #if LUA_OPTIMIZE_MEMORY == 2 && LUA_USE_POPEN
 #error "Pipes not supported in aggresive optimization mode (LUA_OPTIMIZE_MEMORY=2)"
+#endif
+
+#ifdef __cpluplus
+}
 #endif
 
 #endif

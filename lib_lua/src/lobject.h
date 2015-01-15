@@ -15,6 +15,10 @@
 #include "llimits.h"
 #include "lua.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 
 /* tags for values visible from Lua */
 #define LAST_TAG	LUA_TTHREAD
@@ -386,6 +390,9 @@ LUAI_FUNC const char *luaO_pushvfstring (lua_State *L, const char *fmt,
 LUAI_FUNC const char *luaO_pushfstring (lua_State *L, const char *fmt, ...);
 LUAI_FUNC void luaO_chunkid (char *out, const char *source, size_t len);
 
+#ifdef __cpluplus
+}
+#endif
 
 #endif
 

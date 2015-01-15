@@ -10,6 +10,11 @@
 #include "lobject.h"
 #include "lzio.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
+
 /* load one chunk; from lundump.c */
 LUAI_FUNC Proto* luaU_undump (lua_State* L, ZIO* Z, Mbuffer* buff, const char* name);
 
@@ -32,5 +37,9 @@ LUAI_FUNC void luaU_print (const Proto* f, int full);
 
 /* size of header of binary files */
 #define LUAC_HEADERSIZE		12
+
+#ifdef __cpluplus
+}
+#endif
 
 #endif

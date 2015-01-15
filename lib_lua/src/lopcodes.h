@@ -9,6 +9,10 @@
 
 #include "llimits.h"
 
+#ifdef __cpluplus
+extern "C"
+{
+#endif
 
 /*===========================================================================
   We assume that instructions are unsigned numbers.
@@ -264,5 +268,8 @@ LUAI_DATA const char *const luaP_opnames[NUM_OPCODES+1];  /* opcode names */
 /* number of list items to accumulate before a SETLIST instruction */
 #define LFIELDS_PER_FLUSH	50
 
+#ifdef __cpluplus
+}
+#endif
 
 #endif
