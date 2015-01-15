@@ -76,6 +76,13 @@ task.h is included from an application file. */
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE
 
 /*-----------------------------------------------------------*/
+unsigned int _CONFIG_HEAP_SIZE; /* TODO: fix */
+
+/* TODO: fix */
+size_t xPortGetFreeHeapSize( void )
+{
+   return 0;
+}
 
 void *pvPortMalloc( size_t xWantedSize )
 {
