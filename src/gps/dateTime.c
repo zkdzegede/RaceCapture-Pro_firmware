@@ -133,3 +133,13 @@ tiny_millis_t getUptime() {
 int getUptimeAsInt() {
    return (int) getUptime();
 }
+
+millis_t getMillisSinceGpsEpoch(DateTime dt) {
+   // GPS_DATE_TIME_STUB: Implement me.
+   return 0ll;
+}
+
+DateTime getDateTimeFromEpoch(millis_t unixTime) {
+   // GPS_DATE_TIME_STUB: Implement me.
+   return (DateTime) { 0 };
+}

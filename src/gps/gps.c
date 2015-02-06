@@ -62,12 +62,11 @@ static tiny_millis_t g_lastSectorTime;
 static int g_lapCount;
 static float g_distance;
 
-/**
- * Date and time this GPS fix was taken.
- */
-static DateTime g_dtFirstFix;
-static DateTime g_dtLastFix;
-static millis_t g_utcMillisAtSample;
+// Time this GPS fix was taken in Millis since GPS epoch.
+static millis_t g_gpsTimeFirstFix;
+static millis_t g_gpsTimeLastFix;
+
+// Uptime at the sample.  Used for interpolation of millis between samples
 static tiny_millis_t g_uptimeAtSample;
 
 static float degreesToMeters(float degrees) {
@@ -83,7 +82,7 @@ static bool isGpsSignalUsable(enum GpsSignalQuality q) {
  * @return true if we haven't parsed any data yet, false otherwise.
  */
 static bool isGpsDataCold() {
-   return g_utcMillisAtSample == 0;
+   return g_gpsTimeFirstFix == 0;
 }
 
 GeoPoint getGeoPoint() {
@@ -95,17 +94,24 @@ GeoPoint getGeoPoint() {
    return gp;
 }
 
-static void updateMillisSinceEpoch(DateTime fixDateTime) {
-   g_utcMillisAtSample = getMillisecondsSinceUnixEpoch(fixDateTime);
+static tiny_millis_t getTimeDeltaSinceLastSample() {
+   return getUptime() - g_uptimeAtSample;
 }
 
 millis_t getMillisSinceEpoch() {
    // If we have no GPS data, return 0 to indicate that.
-   if (isGpsDataCold())
-      return 0;
+   if (isGpsDataCold()) return 0;
 
-   const tiny_millis_t deltaSinceSample = getUptime() - g_uptimeAtSample;
-   return g_utcMillisAtSample + deltaSinceSample;
+   const tiny_millis_t deltaSinceSample = getTimeDeltaSinceLastSample();
+   return g_gpsTimeLastFix + MILLIS_BETWEEN_GPS_AND_UNIX_EPOCH + deltaSinceSample;
+}
+
+tiny_millis_t getMillisSinceFirstFix() {
+   // If we have no GPS data, return 0 to indicate that.
+   if (isGpsDataCold()) return 0;
+
+   const tiny_millis_t deltaSinceSample = getTimeDeltaSinceLastSample();
+   return ((tiny_millis_t) (g_gpsTimeLastFix - g_gpsTimeFirstFix)) + deltaSinceSample;
 }
 
 long long getMillisSinceEpochAsLongLong() {
@@ -121,18 +127,14 @@ tiny_millis_t getUptimeAtSample() {
 }
 
 /**
- * Performs a full update of the g_dtLastFix value.  Also update the g_dtFirstFix value if it hasn't
- * already been set along with updating the Milliseconds as well
- * @param fixDateTime The DateTime of the GPS fix.
+ * Performs all steps associated with a new time update from GPS
  */
-void updateFullDateTime(DateTime fixDateTime) {
+static void updateTimeFromGps(millis_t gpsTimeMillis) {
    updateUptimeAtSample();
-   updateMillisSinceEpoch(fixDateTime);
 
-   g_dtLastFix = fixDateTime;
+   g_gpsTimeLastFix = gpsTimeMillis;
 
-   if (g_dtFirstFix.year == 0)
-      g_dtFirstFix = fixDateTime;
+   if (g_gpsTimeFirstFix == 0) g_gpsTimeFirstFix = g_gpsTimeLastFix;
 }
 
 /**
@@ -188,60 +190,6 @@ static void parseGGA(char *data) {
    while (delim != NULL && keepParsing) {
       *delim = '\0';
       switch (param) {
-         /*
-      case 1: {
-         unsigned int len = strlen(data);
-         if (len > 0 && len <= LATITUDE_DATA_LEN) {
-            //Raw GPS Format is ddmm.mmmmmm
-            char degreesStr[3] = { 0 };
-            memcpy(degreesStr, data, 2);
-            degreesStr[2] = 0;
-            float minutes = modp_atof(data + 2);
-            minutes = minutes / 60.0;
-            latitude = modp_atoi(degreesStr) + minutes;
-         } else {
-            latitude = 0;
-            //TODO log error
-         }
-      }
-         break;
-      case 2: {
-         if (data[0] == 'S') {
-            latitude = -latitude;
-         }
-      }
-         break;
-      case 3: {
-         unsigned int len = strlen(data);
-         if (len > 0 && len <= LONGITUDE_DATA_LEN) {
-            //Raw GPS Format is dddmm.mmmmmm
-            char degreesStr[4] = { 0 };
-            memcpy(degreesStr, data, 3);
-            degreesStr[3] = 0;
-            float minutes = modp_atof(data + 3);
-            minutes = minutes / 60.0;
-            longitude = modp_atoi(degreesStr) + minutes;
-         } else {
-            longitude = 0;
-            //TODO log error
-         }
-      }
-         break;
-      case 4: {
-         if (data[0] == 'W') {
-            longitude = -longitude;
-         }
-      }
-         break;
-      case 5:
-         g_gpsQuality = (enum GpsSignalQuality) modp_atoi(data);
-         break;
-      case 6:
-         g_satellitesUsedForPosition = modp_atoi(data);
-         keepParsing = 0;
-         break;
-         */ // Kept until Full sanity checks pass.
-
       case 5:
          // FIXME: Better suport fo GPS quality here?
          g_gpsQuality = modp_atoi(data) > 0 ? GPS_QUALITY_FIX : GPS_QUALITY_NO_FIX;
@@ -398,7 +346,7 @@ static void parseRMC(char *data) {
       delim = strchr(delim, ',');
    }
 
-   updateFullDateTime(dt);
+   updateTimeFromGps(getMillisSinceGpsEpoch(dt));
    updatePosition(latitude, longitude);
 }
 
@@ -488,10 +436,6 @@ float getGpsSpeedInMph() {
 
 void setGPSSpeed(float speed) {
    g_speed = speed;
-}
-
-DateTime getLastFixDateTime() {
-   return g_dtLastFix;
 }
 
 static struct GpsSample getGpsSample() {
@@ -615,7 +559,6 @@ void gpsConfigChanged(void) {
 void initGPS() {
    g_configured = 0;
    g_activeTrack = NULL;
-   g_utcMillisAtSample = 0;
    g_flashCount = 0;
    g_prevLatitude = 0.0;
    g_prevLongitude = 0.0;
@@ -637,7 +580,7 @@ void initGPS() {
    g_sector = -1;
    g_lastSector = -1; // Indicates no previous sector.
    resetPredictiveTimer();
-   g_dtFirstFix = g_dtLastFix = (DateTime) { 0 };
+   g_gpsTimeFirstFix = g_gpsTimeLastFix = 0;
    g_uptimeAtSample = 0;
 }
 
@@ -653,10 +596,6 @@ static void flashGpsStatusLed() {
       LED_enable(1);
       g_flashCount = 0;
    }
-}
-
-tiny_millis_t getMillisSinceFirstFix() {
-   return getTimeDeltaInTinyMillis(g_dtLastFix, g_dtFirstFix);
 }
 
 static int isStartFinishEnabled(const Track *track) {

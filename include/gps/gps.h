@@ -115,11 +115,6 @@ float getGPSSpeed();
 void setGPSSpeed(float speed);
 
 /**
- * Returns Date time information as provided by the GPS system.
- */
-DateTime getLastFixDateTime();
-
-/**
  * @return Milliseconds since Unix Epoch.  0 indicates not available.
  */
 millis_t getMillisSinceEpoch();

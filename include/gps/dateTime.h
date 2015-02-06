@@ -14,6 +14,12 @@
 #define SECONDS_PER_HOUR (3600)
 #define SECONDS_PER_DAY (86400)
 
+/*
+ * Milliseconds between Unix Epoch and GPS Epoch
+ * http://stackoverflow.com/questions/20521750/ticks-between-unix-epoch-and-gps-epoch
+ */
+#define MILLIS_BETWEEN_GPS_AND_UNIX_EPOCH 315964800000LL
+
 // Time type used for expressing time in millis since epoch
 typedef int64_t millis_t;
 
@@ -80,5 +86,20 @@ float tinyMillisToSeconds(const tiny_millis_t millis);
 tiny_millis_t getUptime();
 
 int getUptimeAsInt();
+
+/**
+ * Gets the millisecond count from GPS epoch (Jan 6, 1980) based on
+ * the DateTime info given.
+ * @param dt The current Date and Time.
+ * @return Milliseconds since GPS epoch.
+ */
+millis_t getMillisSinceGpsEpoch(DateTime dt);
+
+/**
+ * Gets a Date Time struct whose value is equivilant to the unixTime passed in
+ * @param unixTime Unix time in milliseconds (since Jan 1, 1970).
+ * @return DateTime struct equivilant to the Unix time value provided.
+ */
+DateTime getDateTimeFromEpoch(millis_t unixTime);
 
 #endif //__DATE_TIME_H__
