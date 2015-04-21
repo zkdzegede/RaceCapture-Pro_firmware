@@ -274,11 +274,11 @@ ret0:
 }
 
 
-char * strchr(char *s, const int i) {
+char * strchr(const char *s, const int i) {
         const char c = (char) i;
 
         do {
-                if (*s == c) return s;
+                if (*s == c) return (char *) s;
         } while (*s++);
 
         return NULL;
