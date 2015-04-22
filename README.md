@@ -14,11 +14,11 @@ Inspiration
 WE SHOULD DO THIS.
 -->
 
-Overview
+#Overview
 -----
 As of this writing there are two versions of RaceCapture hardware in the wild.
 
-# MK1
+## MK1
 
 MK1 was the original RaceCapturePro unit.  Based on the AT91SAM7s chipset, it provided
 a solid platform for our initial release.  It allowd for up to a 100Hz channel sampling
@@ -27,7 +27,7 @@ a remote GPS mouse for high quality GPS reception.  It came with a separate tele
 unit that would handle passing the data over the Cellular network.  It however has now
 been succedded by the next generation of RaceCapturePro
 
-# MK2
+## MK2
 
 MK2 is the latest RaceCapturePro unit.  Like its successor it has many of the same features
 that were originally loved, all of which have been improved upon.  It also has some new features
@@ -38,7 +38,7 @@ from MK1).  It also includes a better Inertial unit, an upgraded processor (STM3
 into this unit, allowing for a thinner wire and adjustable antenna (for those needing higher signal
 gain in wooded areas).
 
-Building
+#Building
 -----
 
 The only fully supported building system for RaceCapture Firmware is most any modern Linux based
@@ -50,11 +50,11 @@ operating system.  Known systems that work are
 There are likely others not listed here, you just need a system that meets the requirements for
 our various processor toolchains.
 
-# MK1 Toolchain
+## MK1 Toolchain
 
 ** TODO When my Linux Box is present **
 
-# MK2 Toolchain
+## MK2 Toolchain
 
 <!--
 ===============================
@@ -73,32 +73,32 @@ Mk2 Building Requirements
 
 ** TODO When I don't have friends bekoning me to have a beer **
 
-# Unit Test Toolchain
+## Unit Test Toolchain
 
 Unit tests are supported on both modern Linux based systems and on OSX.  The unit tests for
 RaceCapturePro are done using clang + libcppunit.  Setting them up is as follows:
 
-## Setup
-### Linux
+### Setup
+#### Linux
 * Install the 64bit clang packages for your system
 * Install the 64bit libcppunit library and its header packages
 
-### OSX
+#### OSX
 * Install the OSX clang compiler.  This is typically done by installing command line tools from XCode.
 * Use brew to install libcppunit by executing the following: `brew install cppunit`
 
-## Compiling
+### Compiling
 
 Follow these steps to compile the unit tests:
 
 * cd test
 * make
 
-## Testing
+### Testing
 
 Simply run `./rcptest` from within the 'test' directory.  That will run the suite of unit test.
 
-Flashing
+# Flashing
 -----
 
 Firmware for RaceCapture/Pro data acqusition / control / telemetry system
@@ -106,8 +106,6 @@ Firmware for RaceCapture/Pro data acqusition / control / telemetry system
 http://www.autosportlabs.net/RaceCapture
 
 See the LICENSE file for more information on licensing for this software.
-
-# Flashing
 
 WARNING: Updating firmware restores the default configuration on RaceCapture/Pro
 Be sure to save your configuration using the Race Analyzer software.
@@ -124,9 +122,8 @@ Now flash the firmware by executing the flasher application at the command line:
 
 `flasher RaceCapturePro-<VERSION>.elf`
 
-================================
 Flashing process
-================================
+-----
 The flasher application should find the RaceCapture/Pro device and then start flashing new firmware. The red front panel LED on RaceCapture/Pro will flash while firmware is written.
 
 Once the firmware completes flashing, RaceCapture/Pro will reset and run normally with the default configuration.
