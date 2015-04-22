@@ -14,8 +14,8 @@ Inspiration
 WE SHOULD DO THIS.
 -->
 
-#Overview
------
+# Overview
+
 As of this writing there are two versions of RaceCapture hardware in the wild.
 
 ## MK1
@@ -38,8 +38,7 @@ from MK1).  It also includes a better Inertial unit, an upgraded processor (STM3
 into this unit, allowing for a thinner wire and adjustable antenna (for those needing higher signal
 gain in wooded areas).
 
-#Building
------
+# Building
 
 The only fully supported building system for RaceCapture Firmware is most any modern Linux based
 operating system.  Known systems that work are
@@ -99,7 +98,6 @@ Follow these steps to compile the unit tests:
 Simply run `./rcptest` from within the 'test' directory.  That will run the suite of unit test.
 
 # Flashing
------
 
 Firmware for RaceCapture/Pro data acqusition / control / telemetry system
 
