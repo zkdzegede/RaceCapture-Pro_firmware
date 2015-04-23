@@ -80,7 +80,8 @@ RaceCapturePro are done using clang + libcppunit.  Setting them up is as follows
 ### Setup
 #### Linux
 * Install the 64bit clang packages for your system
-* Install the 64bit libcppunit library and its header packages
+* Install the 64bit libcppunit library and its header and devel packages
+* Install glibc-devel and glibc-headers
 
 #### OSX
 * Install the OSX clang compiler.  This is typically done by installing command line tools from XCode.
