@@ -287,9 +287,6 @@ const luaR_value_entry mathlib_vals[] = {
 */
 LUALIB_API int luaopen_math (lua_State *L)
 {
-#if LUA_OPTIMIZE_MEMORY > 0
-    return 0;
-#else
     luaL_register(L, LUA_MATHLIBNAME, mathlib);
     lua_pushnumber(L, PI);
     lua_setfield(L, -2, "pi");
@@ -300,6 +297,4 @@ LUALIB_API int luaopen_math (lua_State *L)
     lua_setfield(L, -2, "mod");
 #endif
     return 1;
-#endif
 }
-

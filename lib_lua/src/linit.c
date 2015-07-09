@@ -18,8 +18,8 @@ static const luaL_Reg lualibs[] = {
     {"", luaopen_base},
     {LUA_LOADLIBNAME, luaopen_package},
     {LUA_STRLIBNAME, luaopen_string},
-#if LUA_OPTIMIZE_MEMORY == 0
     {LUA_MATHLIBNAME, luaopen_math},
+#if LUA_OPTIMIZE_MEMORY == 0
     {LUA_OSLIBNAME, luaopen_os},
     {LUA_TABLIBNAME, luaopen_table},
     {LUA_DBLIBNAME, luaopen_debug},
@@ -35,8 +35,8 @@ extern const luaL_Reg tab_funcs[];
 extern const luaL_Reg dblib[];
 extern const luaL_Reg co_funcs[];
 const luaR_table lua_rotable[] = {
-#if LUA_OPTIMIZE_MEMORY > 0
     {LUA_MATHLIBNAME, mathlib, mathlib_vals},
+#if LUA_OPTIMIZE_MEMORY > 0
     {LUA_OSLIBNAME, syslib, NULL},
     {LUA_TABLIBNAME, tab_funcs, NULL},
     {LUA_DBLIBNAME, dblib, NULL},
