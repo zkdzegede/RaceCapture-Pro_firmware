@@ -4,6 +4,7 @@
 * Fixed filtering of 500 and 1000 Hz sample rates when config is applied
 * Improved tolerance and recovery to SD card write/eject/reinsertion
 * Reset CPU after we load factory defaults
+* Fix LUA math methods causing a crash
 
 === 2.8.3 ===
 * Read cell module stats before checking if on network
