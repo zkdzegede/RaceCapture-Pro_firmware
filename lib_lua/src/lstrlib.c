@@ -629,25 +629,6 @@ static int gmatch_aux (lua_State *L)
     return 0;  /* not found */
 }
 
-
-static int gmatch (lua_State *L)
-{
-    luaL_checkstring(L, 1);
-    luaL_checkstring(L, 2);
-    lua_settop(L, 2);
-    lua_pushinteger(L, 0);
-    lua_pushcclosure(L, gmatch_aux, 3);
-    return 1;
-}
-
-
-static int gfind_nodef (lua_State *L)
-{
-    return luaL_error(L, LUA_QL("string.gfind") " was renamed to "
-                      LUA_QL("string.gmatch"));
-}
-
-
 static void add_s (MatchState *ms, luaL_Buffer *b, const char *s,
                    const char *e)
 {
@@ -893,10 +874,30 @@ static int str_format (lua_State *L)
 
 /* Compile the correct version of "gfind" */
 #if LUA_OPTIMIZE_MEMORY > 0 && defined(LUA_COMPAT_GFIND)
+
+static int gmatch (lua_State *L)
+{
+    luaL_checkstring(L, 1);
+    luaL_checkstring(L, 2);
+    lua_settop(L, 2);
+    lua_pushinteger(L, 0);
+    lua_pushcclosure(L, gmatch_aux, 3);
+    return 1;
+}
+
 #define LUA_GFIND_DECL	{"gfind", gmatch}
+
 #else
+
+static int gfind_nodef (lua_State *L)
+{
+    return luaL_error(L, LUA_QL("string.gfind") " was renamed to "
+                      LUA_QL("string.gmatch"));
+}
+
 #define LUA_GFIND_DECL  {"gfind", gfind_nodef}
-#endif
+
+#endif /* LUA_OPTIMIZE_MEMORY > 0 && defined(LUA_COMPAT_GFIND) */
 
 #define LUA_STRLIB_FUNCLIST\
   {"byte", str_byte},\
