@@ -1,3 +1,24 @@
+/*
+ * Race Capture Pro Firmware
+ *
+ * Copyright (C) 2015 Autosport Labs
+ *
+ * This file is part of the Race Capture Pro fimrware suite
+ *
+ * This is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * See the GNU General Public License for more details. You should
+ * have received a copy of the GNU General Public License along with
+ * this code. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "ADC.h"
 #include "ADC_mock.h"
 #include "FreeRTOS.h"
@@ -15,6 +36,7 @@
 #include "sampleRecord_test.h"
 #include "task.h"
 #include "task_testing.h"
+
 #include <string>
 
 using std::string;
@@ -36,7 +58,6 @@ void SampleRecordTest::setUp()
         lapStats_init();
         size_t channelCount = get_enabled_channel_count(lc);
         init_sample_buffer(&s, channelCount);
-
 }
 
 
@@ -137,6 +158,9 @@ void SampleRecordTest::testPopulateSampleRecord(){
 	CPPUNIT_ASSERT_EQUAL((float) 0, samples->valueFloat);
 
         samples++;
+	CPPUNIT_ASSERT_EQUAL((float) 0, samples->valueFloat);
+
+        samples++;
         CPPUNIT_ASSERT_EQUAL(-1, samples->valueInt);
 }
 
@@ -144,7 +168,7 @@ void SampleRecordTest::testInitSampleRecord()
 {
         LoggerConfig *lc = getWorkingLoggerConfig();
 
-        const size_t expectedEnabledChannels = 24;
+        const size_t expectedEnabledChannels = 25;
         size_t channelCount = get_enabled_channel_count(lc);
         CPPUNIT_ASSERT_EQUAL(expectedEnabledChannels, channelCount);
 
@@ -305,6 +329,16 @@ void SampleRecordTest::testInitSampleRecord()
                 ts++;
         }
 
+        if (gpsConfig->course.sampleRate != SAMPLE_DISABLED){
+                CPPUNIT_ASSERT_EQUAL((void *) &gpsConfig->course,
+                                     (void *) ts->cfg);
+                CPPUNIT_ASSERT_EQUAL((void *) get_gps_heading,
+                                     (void *) ts->get_float_sample);
+                CPPUNIT_ASSERT_EQUAL(SampleData_Float_Noarg, ts->sampleData);
+                ts++;
+        }
+
+
         LapConfig *lapConfig = &(lc->LapConfigs);
         if (lapConfig->lapCountCfg.sampleRate != SAMPLE_DISABLED){
                 CPPUNIT_ASSERT_EQUAL((void *) &lapConfig->lapCountCfg,
@@ -389,6 +423,7 @@ void SampleRecordTest::testIsValidLoggerMessage() {
 
         /* Test the sample case. */
         lm = create_logger_message(LoggerMessageType_Sample, &s);
+
         lm.ticks = 42;
         s.ticks = 42;
         CPPUNIT_ASSERT_EQUAL(true, is_sample_data_valid(&lm));

@@ -1,3 +1,13 @@
+=== 2.9.0 ===
+*  Added slip angle (drift angle) support.  This channel estimates the slip
+   angle of the vehicle by combining integrations of the yaw sensors with
+   kinetic-Kalman filters to produce an accurate estimate of what the slip
+   angle of the vehicle
+* Code cleanup around the some API methods.  Also eliminates unused variable
+  errors and removes some unneeded variables.
+* Added support for a GPS heading channel.  This represents the heading of the
+  vehicle, regardless of whether or not it is slipping on the ground.
+
 === 2.8.6 ===
 * Improve the USART code for MK1 by removing duplicated code, eliminating
   externs, and cleaning up the handling of character queues.
