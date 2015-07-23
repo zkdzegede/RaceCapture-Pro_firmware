@@ -19,6 +19,7 @@
  * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "geopoint.h"
 #include "gps.h"
 #include "gps_device.h"
 #include "mod_string.h"
@@ -180,6 +181,11 @@ GpsSnapshot getGpsSnapshot()
     return g_gpsSnapshot;
 }
 
+float get_gps_bearing()
+{
+        return g_gpsSnapshot.bearing;
+}
+
 static void updateFullDateTime(GpsSample *gpsSample)
 {
     g_uptimeAtSample = getUptime();
@@ -198,6 +204,7 @@ void GPS_sample_update(GpsSample *newSample)
     updateFullDateTime(newSample);
     g_gpsSnapshot.deltaFirstFix = newSample->time - g_timeFirstFix;
     g_gpsSnapshot.previousPoint = prevPoint;
+    g_gpsSnapshot.bearing = gps_bearing(&prevPoint, &(newSample->point));
 }
 
 int GPS_processUpdate(Serial *serial)
