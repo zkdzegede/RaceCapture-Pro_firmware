@@ -47,18 +47,31 @@ void SampleRecordTest::tearDown()
 
 
 void SampleRecordTest::testPopulateSampleRecord(){
+	LoggerConfig *lc = getWorkingLoggerConfig();
+        GPS_init(10, get_serial(SERIAL_GPS));
+        lapStats_init();
+
 	//mock up some values to test later
 	lc->ADCConfigs[7].scalingMode = SCALING_MODE_RAW;
 	ADC_mock_set_value(7, 123);
 	ADC_sample_all();
 
+	size_t channelCount = get_enabled_channel_count(lc);
+	ChannelSample * samples = create_channel_sample_buffer(lc, channelCount);
+	init_channel_sample_buffer(lc, samples, channelCount);
+
+	LoggerMessage lm;
+	lm.channelSamples = samples;
+	lm.sampleCount = channelCount;
+	lm.type = LoggerMessageType_Sample;
+
         // Set it so we have 1 tick.
+        reset_ticks();
         increment_tick();
         CPPUNIT_ASSERT_EQUAL(1, (int) (xTaskGetTickCount()));
 
 	const unsigned short highSampleRate =
-                (unsigned short) populate_sample_buffer(&s, 0);
-        const ChannelSample *samples = s.channel_samples;
+                (unsigned short) populate_sample_buffer(&lm, channelCount, 0);
 
         // Interval Channel
         CPPUNIT_ASSERT_EQUAL((int) (xTaskGetTickCount() * MS_PER_TICK),
@@ -125,16 +138,19 @@ void SampleRecordTest::testPopulateSampleRecord(){
 	CPPUNIT_ASSERT_EQUAL((float) 0, samples->valueFloat);
 
         samples++;
-        CPPUNIT_ASSERT_EQUAL((float) 0, samples->valueFloat);
+        CPPUNIT_ASSERT_EQUAL((float)0, samples->valueFloat);
 
         samples++;
-        CPPUNIT_ASSERT_EQUAL((float) 0, samples->valueFloat);
+        CPPUNIT_ASSERT_EQUAL((float)0, samples->valueFloat);
 
         samples++;
-        CPPUNIT_ASSERT_EQUAL((float) 0, samples->valueFloat);
+        CPPUNIT_ASSERT_EQUAL((float)0, samples->valueFloat);
 
         samples++;
-	CPPUNIT_ASSERT_EQUAL((float) 0, samples->valueFloat);
+	CPPUNIT_ASSERT_EQUAL((float)0, samples->valueFloat);
+
+        samples++;
+	CPPUNIT_ASSERT_EQUAL((float)0, samples->valueFloat);
 
         samples++;
         CPPUNIT_ASSERT_EQUAL(-1, samples->valueInt);
