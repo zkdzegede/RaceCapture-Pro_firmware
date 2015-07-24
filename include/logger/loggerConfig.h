@@ -221,7 +221,7 @@ typedef struct _ImuConfig {
 
 #define DEFAULT_IMU_CHANNEL_CONFIG  {"", "G", -3, 3, SAMPLE_25Hz, 2, 0}
 #define DEFAULT_GYRO_CHANNEL_CONFIG {"", "Deg/Sec", -300, 300, SAMPLE_25Hz, 1, 0}
-#define DEFAULT_COMPASS_CHANNEL_CONFIG {"", "Deg", 0, 360, SAMPLE_25Hz, 1, 0}
+#define DEFAULT_COMPASS_CHANNEL_CONFIG {"", "Deg", 0, 360, SAMPLE_25Hz, 0, 0}
 
 #define DEFAULT_IMU_CONFIG                      \
    {                                            \
@@ -362,7 +362,7 @@ typedef struct _GPSConfig {
 #define DEFAULT_GPS_SATELLITE_CONFIG {"GPSSats", "", 0, 20, DEFAULT_GPS_SAMPLE_RATE, 0, 0}
 #define DEFAULT_GPS_QUALITY_CONFIG {"GPSQual", "", 0, 5, DEFAULT_GPS_SAMPLE_RATE, 0, 0}
 #define DEFAULT_GPS_DOP_CONFIG {"GPSDOP", "", 0, 20, DEFAULT_GPS_SAMPLE_RATE, 1, 0}
-#define DEFAULT_GPS_BEARING_CONFIG {"Bearing", "Degrees", 0, 360, DEFAULT_GPS_SAMPLE_RATE, 1, 0}
+#define DEFAULT_GPS_BEARING_CONFIG {"Bearing", "Degrees", 0, 360, DEFAULT_GPS_SAMPLE_RATE, 0, 0}
 
 #define DEFAULT_GPS_CONFIG {                            \
 		DEFAULT_GPS_LATITUDE_CONFIG,            \
