@@ -307,8 +307,8 @@ void SampleRecordTest::testInitSampleRecord()
                 ts++;
         }
 
-        if (gpsConfig->heading.sampleRate != SAMPLE_DISABLED){
-                CPPUNIT_ASSERT_EQUAL((void *) &gpsConfig->heading,
+        if (gpsConfig->course.sampleRate != SAMPLE_DISABLED){
+                CPPUNIT_ASSERT_EQUAL((void *) &gpsConfig->course,
                                      (void *) ts->cfg);
                 CPPUNIT_ASSERT_EQUAL((void *) get_gps_heading,
                                      (void *) ts->get_float_sample);

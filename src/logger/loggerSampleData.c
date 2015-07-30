@@ -315,7 +315,7 @@ void init_channel_sample_buffer(LoggerConfig *loggerConfig, struct sample *buff)
     sample = processChannelSampleWithIntGetterNoarg(sample, chanCfg, GPS_getQuality);
     chanCfg = &(gpsConfig->DOP);
     sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg, GPS_getDOP);
-    chanCfg = &(gpsConfig->heading);
+    chanCfg = &(gpsConfig->course);
     sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg, get_gps_heading);
 
 
