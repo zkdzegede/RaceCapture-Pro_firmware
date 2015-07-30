@@ -79,7 +79,7 @@ float gps_heading(const GeoPoint *last, const GeoPoint *curr)
                 sin(lat_last) * cos(lat_curr) * cos(d_lon);
 
         const float res = to_deg(atan2(y, x));
-        return res < 0 ? res + 360 : res;
+        return res <= 0 ? res + 360 : res;
 }
 
 int isValidPoint(const GeoPoint *p)
