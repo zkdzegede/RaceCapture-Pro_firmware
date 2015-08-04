@@ -49,6 +49,7 @@ typedef struct _GpsSnapshot {
         GpsSample sample;
         tiny_millis_t deltaFirstFix;
         GeoPoint previousPoint;
+        GeoPoint prev_heading_point;
         float heading;
 } GpsSnapshot;
 

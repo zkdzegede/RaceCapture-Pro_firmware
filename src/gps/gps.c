@@ -24,12 +24,13 @@
 #include "gps_device.h"
 #include "mod_string.h"
 #include "modp_atonum.h"
+#include "ring_buffer.h"
 
 #define GPS_LOCK_FLASH_COUNT 5
 #define GPS_NOFIX_FLASH_COUNT 50
 
 static GpsSnapshot g_gpsSnapshot;
-gps_status_t gps_status = GPS_STATUS_NOT_INIT;
+static gps_status_t gps_status = GPS_STATUS_NOT_INIT;
 static int g_flashCount;
 static millis_t g_timeFirstFix;
 static tiny_millis_t g_uptimeAtSample;
@@ -204,7 +205,16 @@ void GPS_sample_update(GpsSample *newSample)
     updateFullDateTime(newSample);
     g_gpsSnapshot.deltaFirstFix = newSample->time - g_timeFirstFix;
     g_gpsSnapshot.previousPoint = prevPoint;
-    g_gpsSnapshot.heading = gps_heading(&prevPoint, &(newSample->point));
+
+    /*
+     * Only calculate heading if speed > 10 MPH
+     *
+     * HACK: Temporary solution until we start keeping track of more
+     * GPS history.  But that gets more complicated as we need to be
+     * able to deal with variable GPS sampling rates.
+     */
+    g_gpsSnapshot.heading = 10 < newSample->speed ?
+            gps_heading(&prevPoint, &newSample->point) : 0;
 }
 
 int GPS_processUpdate(Serial *serial)
