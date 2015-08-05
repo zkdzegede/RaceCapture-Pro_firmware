@@ -221,7 +221,7 @@ $(PWM_DIR)/PWM.c \
 $(LED_DIR)/LED.c \
 $(GPIO_DIR)/GPIO.c \
 $(WATCHDOG_DIR)/watchdog.c \
-$(LOGGING_DIR)/ring_buffer.c \
+$(UTIL_DIR)/ring_buffer.c \
 $(MESSAGING_SRC_DIR)/messaging.c \
 $(PRED_TIMER_DIR)/predictive_timer_2.c \
 $(UTIL_DIR)/linear_interpolate.c \
@@ -628,13 +628,15 @@ gccversion :
 $(COBJ) : %.o : %.c
 	@echo
 	@echo $(MSG_COMPILING) $<
-	$(CC) -c $(THUMB) $(ALL_CFLAGS) $(CONLYFLAGS) $< -o $@
+	$(CC) -c $(THUMB) $(ALL_CFLAGS) $(CONLYFLAGS) \
+		-D_RCP_BASE_FILE_="\"$(notdir $<): \"" $< -o $@
 
 # Compile: create object files from C source files. ARM-only
 $(COBJARM) : %.o : %.c
 	@echo
 	@echo $(MSG_COMPILING_ARM) $<
-	$(CC) -c $(ALL_CFLAGS) $(CONLYFLAGS) $< -o $@
+	$(CC) -c $(ALL_CFLAGS) $(CONLYFLAGS) \
+		-D_RCP_BASE_FILE_="\"$(notdir $<): \"" $< -o $@
 
 # Compile: create object files from C++ source files. ARM/Thumb
 $(CPPOBJ) : %.o : %.cpp
