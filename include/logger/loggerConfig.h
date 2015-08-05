@@ -2,6 +2,7 @@
 #define LOGGERCONFIG_H_
 
 #include <stddef.h>
+#include <stdint.h>
 #include "geopoint.h"
 #include "tracks.h"
 #include "capabilities.h"
@@ -407,6 +408,16 @@ typedef struct _TrackConfig {
 
 #define DEFAULT_TRACK_AUTO_DETECT 1
 
+#define DEFAULT_WIFI_ENABLED 1
+
+typedef struct _WifiConfig {
+	uint8_t wifi_enabled;
+} WifiConfig;
+
+#define DEFAULT_WIFI_CONFIG { \
+		DEFAULT_WIFI_ENABLED; \
+}
+
 #define BT_DEVICE_NAME_LENGTH 21
 #define BT_PASSCODE_LENGTH 5
 #define DEFAULT_BT_DEVICE_NAME "RaceCapturePro"
@@ -461,6 +472,7 @@ typedef struct _TelemetryConfig {
 
 
 typedef struct _ConnectivityConfig {
+	WifiConfig wifiConfig;
     BluetoothConfig bluetoothConfig;
     CellularConfig cellularConfig;
     TelemetryConfig telemetryConfig;

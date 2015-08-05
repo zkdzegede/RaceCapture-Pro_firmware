@@ -145,6 +145,11 @@ static void resetTrackConfig(TrackConfig *cfg)
     cfg->auto_detect = DEFAULT_TRACK_AUTO_DETECT;
 }
 
+static void resetWifiConfig(WifiConfig *cfg)
+{
+	*cfg = (WifiConfig) DEFAULT_WIFI_CONFIG;
+}
+
 static void resetBluetoothConfig(BluetoothConfig *cfg)
 {
     *cfg = (BluetoothConfig) DEFAULT_BT_CONFIG;
@@ -166,6 +171,7 @@ static void resetTelemetryConfig(TelemetryConfig *cfg)
 
 static void resetConnectivityConfig(ConnectivityConfig *cfg)
 {
+	resetWifiConfig(&cfg->wifiConfig);
     resetBluetoothConfig(&cfg->bluetoothConfig);
     resetCellularConfig(&cfg->cellularConfig);
     resetTelemetryConfig(&cfg->telemetryConfig);

@@ -176,7 +176,7 @@ static int wifi_start_service(DeviceConfig *config)
 {
 	/* Start TCP server on the specified port */
 	/* Format is AT+ CIPSERVER= <mode>[,<port>] */
-	port = 4600; /* TODO un-hardcode me */
+	port = 14600; /* TODO un-hardcode me */
 
 	Serial *serial = config->serial;
     flush_wifi(config);
