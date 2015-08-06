@@ -54,9 +54,9 @@ void puts_wifi(DeviceConfig *config, const char *data)
 static int read_wifi_response(DeviceConfig *config, const char *rsp, size_t wait)
 {
     read_wifi_wait(config, wait);
-    pr_debug_str_msg("wifi: cmd rsp: ", config->buffer);
+    pr_info_str_msg("wifi: cmd rsp: ", config->buffer);
     int res = strncmp(config->buffer, rsp, strlen(rsp));
-    pr_debug_str_msg("wifi: ", res == 0 ? "match" : "nomatch");
+    pr_info_str_msg("wifi: ", res == 0 ? "match" : "nomatch");
     return res == 0;
 }
 
@@ -75,7 +75,7 @@ static int sendWifiCommandWait(DeviceConfig *config, const char *cmd, size_t wai
 
 static int sendCommand(DeviceConfig *config, const char * cmd)
 {
-    pr_debug_str_msg("wifi: cmd: ", cmd);
+    pr_info_str_msg("wifi: cmd: ", cmd);
     return sendWifiCommandWait(config, cmd, COMMAND_WAIT);
 }
 
