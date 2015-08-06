@@ -23,6 +23,7 @@
 #include "printk.h"
 #include "task.h"
 #include "taskUtil.h"
+#include "api.h"
 
 #define COMMAND_WAIT 	600
 #define BT_INIT_DELAY   100
@@ -165,5 +166,12 @@ int bt_init_connection(DeviceConfig *config)
 
 int bt_check_connection_status(DeviceConfig *config)
 {
-    return DEVICE_STATUS_NO_ERROR;
+    return DEVICE_STATUS_OK;
+}
+
+int bt_process_data(Serial * serial, char * buffer, size_t buffer_size)
+{
+    /* bluetooth mode is always transparent, so pass it through to the API */
+    int res = process_api(serial, buffer, buffer_size);
+    return res == API_SUCCESS ? DEVICE_STATUS_OK : DEVICE_STATUS_FAULT;
 }

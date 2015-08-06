@@ -23,6 +23,11 @@
 #define CAN_CHANNELS			2
 #define CONNECTIVITY_CHANNELS	2
 
+//Connectivity support
+#define WIFI_SUPPORT            1
+#define BLUETOOTH_SUPPORT       1
+#define CELLULAR_SUPPORT        1
+
 //sample rates
 #define MAX_SENSOR_SAMPLE_RATE	1000
 #define MAX_GPS_SAMPLE_RATE		50

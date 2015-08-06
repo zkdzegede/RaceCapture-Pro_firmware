@@ -20,8 +20,9 @@ typedef struct _DeviceConfig {
 #define DEVICE_INIT_SUCCESS 			0
 #define DEVICE_INIT_FAIL				1
 
-#define DEVICE_STATUS_NO_ERROR 			0
+#define DEVICE_STATUS_OK    			0
 #define DEVICE_STATUS_DISCONNECTED		1
+#define DEVICE_STATUS_FAULT             2
 
 
 #endif /* DEVICES_COMMON_H_ */

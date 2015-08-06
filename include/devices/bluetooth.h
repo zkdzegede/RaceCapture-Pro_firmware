@@ -21,6 +21,7 @@
 
 #include "devices_common.h"
 #include "stddef.h"
+#include "serial.h"
 
 typedef enum {
     BT_STATUS_NOT_INIT = 0,
@@ -32,5 +33,6 @@ bluetooth_status_t bt_get_status();
 int bt_init_connection(DeviceConfig *config);
 int bt_disconnect(DeviceConfig *config);
 int bt_check_connection_status(DeviceConfig *config);
+int bt_process_data(Serial * serial, char * buffer, size_t buffer_size);
 
 #endif /* BLUETOOTH_H_ */

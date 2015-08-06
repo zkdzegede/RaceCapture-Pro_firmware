@@ -415,7 +415,7 @@ typedef struct _WifiConfig {
 } WifiConfig;
 
 #define DEFAULT_WIFI_CONFIG { \
-		DEFAULT_WIFI_ENABLED; \
+		DEFAULT_WIFI_ENABLED \
 }
 
 #define BT_DEVICE_NAME_LENGTH 21

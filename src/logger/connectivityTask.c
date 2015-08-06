@@ -21,7 +21,8 @@
 #include "null_device.h"
 #include "bluetooth.h"
 #include "sim900.h"
-
+#include "wifi.h"
+#include "3gpp.h"
 
 #if (CONNECTIVITY_CHANNELS == 1)
 #define CONNECTIVITY_TASK_INIT {NULL}
@@ -38,6 +39,7 @@
 #define INIT_DELAY	 							600
 #define BUFFER_SIZE 							1025
 #define TELEMETRY_DISCONNECT_TIMEOUT            60000
+#define WIFI_DISCONNECT_TIMEOUT                 60000
 
 #define TELEMETRY_STACK_SIZE  					1000
 #define SAMPLE_RECORD_QUEUE_SIZE				10
@@ -128,11 +130,11 @@ static void createCombinedTelemetryTask(int16_t priority, xQueueHandle sampleQue
     }
 }
 
-static void createWirelessConnectionTask(int16_t priority, xQueueHandle sampleQueue, uint8_t isPrimary)
+static void createBluetoothConnectionTask(int16_t priority, xQueueHandle sampleQueue, uint8_t isPrimary)
 {
     ConnParams * params = (ConnParams *)portMalloc(sizeof(ConnParams));
     params->isPrimary = isPrimary;
-    params->connectionName = "Wireless";
+    params->connectionName = "Bluetooth";
     params->periodicMeta = 0;
     params->connection_timeout = 0;
     params->check_connection_status = &bt_check_connection_status;
@@ -141,7 +143,24 @@ static void createWirelessConnectionTask(int16_t priority, xQueueHandle sampleQu
     params->serial = SERIAL_WIRELESS;
     params->sampleQueue = sampleQueue;
     params->always_streaming = true;
-    xTaskCreate(connectivityTask, (signed portCHAR *) "connWireless", TELEMETRY_STACK_SIZE, params, priority, NULL );
+    xTaskCreate(connectivityTask, (signed portCHAR *) "connBluetooth", TELEMETRY_STACK_SIZE, params, priority, NULL );
+}
+
+static void createWifiConnectionTask(int16_t priority, xQueueHandle sampleQueue, uint8_t isPrimary)
+{
+    ConnParams * params = (ConnParams *)portMalloc(sizeof(ConnParams));
+    params->isPrimary = isPrimary;
+    params->connectionName = "Wifi";
+    params->periodicMeta = 0;
+    params->connection_timeout = 0;
+    params->check_connection_status = &wifi_check_connection_status;
+    params->disconnect = &wifi_disconnect;
+    params->init_connection = &wifi_init_connection;
+    params->serial = SERIAL_AUX;
+    params->sampleQueue = sampleQueue;
+    params->always_streaming = false;
+    params->process_data = &_3gpp_process_data;
+    xTaskCreate(connectivityTask, (signed portCHAR *) "connWifi", TELEMETRY_STACK_SIZE, params, priority, NULL );
 }
 
 static void createTelemetryConnectionTask(int16_t priority, xQueueHandle sampleQueue, uint8_t isPrimary)
@@ -157,6 +176,7 @@ static void createTelemetryConnectionTask(int16_t priority, xQueueHandle sampleQ
     params->serial = SERIAL_TELEMETRY;
     params->sampleQueue = sampleQueue;
     params->always_streaming = false;
+    params->process_data = &_3gpp_process_data;
     xTaskCreate(connectivityTask, (signed portCHAR *) "connTelemetry", TELEMETRY_STACK_SIZE, params, priority, NULL );
 }
 
@@ -192,9 +212,15 @@ void startConnectivityTask(int16_t priority)
                                                       g_sampleQueue[1], 1);
 
                 if (connConfig->bluetoothConfig.btEnabled)
-                        createWirelessConnectionTask(priority,
+                        createBluetoothConnectionTask(priority,
                                                      g_sampleQueue[0],
                                                      !cellEnabled);
+
+                if (connConfig->wifiConfig.wifi_enabled)
+                        createWifiConnectionTask(priority,
+                                                     g_sampleQueue[0],
+                                                     !cellEnabled);
+
         }
                 break;
         default:
@@ -316,7 +342,7 @@ void connectivityTask(void *params)
             //read in available characters, process message as necessary*/
             int msgReceived = processRxBuffer(serial, buffer, &rxCount);
             /*check the latest contents of the buffer for something that might indicate an error condition*/
-            if (connParams->check_connection_status(&deviceConfig) != DEVICE_STATUS_NO_ERROR) {
+            if (connParams->check_connection_status(&deviceConfig) != DEVICE_STATUS_OK) {
                 pr_info("conn: disconnected\r\n");
                 break;
             }
@@ -325,9 +351,9 @@ void connectivityTask(void *params)
                 last_message_time = getUptimeAsInt();
                 pr_debug(connParams->connectionName);
                 pr_debug_str_msg(": rx: ", buffer);
-                int msgRes = process_api(serial, buffer, BUFFER_SIZE);
+                int msgRes = connParams->process_data(serial, buffer, BUFFER_SIZE);
 
-                int msgError = (msgRes == API_ERROR_MALFORMED);
+                int msgError = (msgRes != DEVICE_STATUS_OK);
                 if (msgError) {
                     pr_debug("(failed)\r\n");
                 }

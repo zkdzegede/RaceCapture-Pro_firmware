@@ -16,8 +16,8 @@
  * General Public License along with this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef BLUETOOTH_H_
-#define BLUETOOTH_H_
+#ifndef WIFI_H_
+#define WIFI_H_
 
 #include "devices_common.h"
 #include "stddef.h"

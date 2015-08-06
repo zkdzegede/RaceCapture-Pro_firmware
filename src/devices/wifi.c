@@ -16,7 +16,7 @@
  * General Public License along with this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "bluetooth.h"
+#include "wifi.h"
 #include "FreeRTOS.h"
 #include "loggerConfig.h"
 #include "mod_string.h"
@@ -24,9 +24,9 @@
 #include "task.h"
 #include "taskUtil.h"
 #include "serial.h"
-#include <stdint.h>
 
 #define WIFI_INIT_DELAY 100
+#define COMMAND_WAIT    600
 static wifi_status_t g_wifi_status = WIFI_STATUS_NOT_INIT;
 
 wifi_status_t wifi_get_status()
@@ -51,14 +51,6 @@ void puts_wifi(DeviceConfig *config, const char *data)
     config->serial->put_s(data);
 }
 
-static int sendWifiCommandWaitResponse(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait)
-{
-    flush_wifi(config);
-    puts_wifi(config, cmd);
-    put_crlf(config->serial);
-    return read_wifi_response(config, rsp, wait);
-}
-
 static int read_wifi_response(DeviceConfig *config, const char *rsp, size_t wait)
 {
     read_wifi_wait(config, wait);
@@ -66,6 +58,14 @@ static int read_wifi_response(DeviceConfig *config, const char *rsp, size_t wait
     int res = strncmp(config->buffer, rsp, strlen(rsp));
     pr_debug_str_msg("wifi: ", res == 0 ? "match" : "nomatch");
     return res == 0;
+}
+
+static int sendWifiCommandWaitResponse(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait)
+{
+    flush_wifi(config);
+    puts_wifi(config, cmd);
+    put_crlf(config->serial);
+    return read_wifi_response(config, rsp, wait);
 }
 
 static int sendWifiCommandWait(DeviceConfig *config, const char *cmd, size_t wait)
@@ -98,7 +98,7 @@ static const char * baudConfigCmdForRate(unsigned int baudRate)
     return "";
 }
 
-static int configure_wifi_baud(DeviceConfig *config, unsigned int targetBaud, const char * deviceName)
+static int configure_wifi_baud(DeviceConfig *config, unsigned int targetBaud)
 {
     pr_info_int_msg("wifi: Configuring baud Rate", targetBaud);
     //set baud rate
@@ -108,13 +108,12 @@ static int configure_wifi_baud(DeviceConfig *config, unsigned int targetBaud, co
     return 0;
 }
 
-static int wifi_probe_baud(unsigned int probeBaud, unsigned int targetBaud, const char * deviceName,
-                           DeviceConfig *config)
+static int wifi_probe_baud(unsigned int probeBaud, unsigned int targetBaud, DeviceConfig *config)
 {
     pr_info_int_msg("wifi: Probing baud ", probeBaud);
     config->serial->init(8, 0, 1, probeBaud);
     int rc;
-    if (sendCommand(config, "AT") && (targetBaud == probeBaud || configure_wifi_baud(config, targetBaud, deviceName) == 0)) {
+    if (sendCommand(config, "AT") && (targetBaud == probeBaud || configure_wifi_baud(config, targetBaud) == 0)) {
         rc = DEVICE_INIT_SUCCESS;
     } else {
         rc = DEVICE_INIT_FAIL;
@@ -151,7 +150,7 @@ static int config_access_point(DeviceConfig *config)
     serial->put_s("AT+CWSAP=\"");
     serial->put_s(ssid);
     serial->put_s("\",\"");
-    serial->put_s(pwd);
+    serial->put_s(password);
     serial->put_s(",");
     put_uint(serial, channel);
     serial->put_s(",");
@@ -163,20 +162,20 @@ static int config_access_point(DeviceConfig *config)
 
 static int reset_wifi(DeviceConfig *config)
 {
-	return sendCommand("AT+RST\n", config);
+	return sendCommand(config, "AT+RST\n");
 }
 
 static int wifi_configure_connection(DeviceConfig *config)
 {
 	/* Allow multiple TCP connections */
-	return sendCommand("AT+CIPMUX=1");
+	return sendCommand(config, "AT+CIPMUX=1");
 }
 
 static int wifi_start_service(DeviceConfig *config)
 {
 	/* Start TCP server on the specified port */
 	/* Format is AT+ CIPSERVER= <mode>[,<port>] */
-	port = 14600; /* TODO un-hardcode me */
+	int port = 14600; /* TODO un-hardcode me */
 
 	Serial *serial = config->serial;
     flush_wifi(config);
@@ -197,12 +196,16 @@ static int config_wifi(DeviceConfig *config)
     	return -2;
     }
 
+    if (!wifi_configure_connection(config)) {
+        return -3;
+    }
+
     if (!config_access_point(config)) {
-    	return -3;
+    	return -4;
     }
 
     if (!wifi_start_service(config)) {
-    	return -4;
+    	return -5;
     }
 	return 0;
 }
@@ -224,7 +227,7 @@ int wifi_init_connection(DeviceConfig *config)
     const int rates[] = { 115200, 9600, 230400, 0 };
     const int *rate = rates;
     for (; *rate != 0; ++rate) {
-        const int status = wifi_probe_baud(*rate, targetBaud, deviceName, config);
+        const int status = wifi_probe_baud(*rate, targetBaud, config);
         if (status == 0)
             break;
     }
@@ -248,5 +251,5 @@ int wifi_init_connection(DeviceConfig *config)
 
 int wifi_check_connection_status(DeviceConfig *config)
 {
-    return DEVICE_STATUS_NO_ERROR;
+    return DEVICE_STATUS_OK;
 }

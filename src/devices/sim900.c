@@ -110,7 +110,7 @@ int sim900_init_connection(DeviceConfig *config)
 int sim900_check_connection_status(DeviceConfig *config)
 {
     setCellBuffer(config->buffer, config->length);
-    int status = isNetConnectionErrorOrClosed() ? DEVICE_STATUS_DISCONNECTED : DEVICE_STATUS_NO_ERROR;
+    int status = isNetConnectionErrorOrClosed() ? DEVICE_STATUS_DISCONNECTED : DEVICE_STATUS_OK;
     if (status == DEVICE_STATUS_DISCONNECTED) {
         g_connection_status = TELEMETRY_STATUS_CURRENT_CONNECTION_TERMINATED;
         pr_debug("cell disconnected\r\n");
