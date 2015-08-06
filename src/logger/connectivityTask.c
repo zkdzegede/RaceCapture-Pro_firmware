@@ -267,7 +267,7 @@ void connectivityTask(void *params)
                              logger_config->ConnectivityConfigs.telemetryConfig.backgroundStreaming ||
                              connParams->always_streaming;
 
-        while (should_stream && connParams->init_connection(&deviceConfig) != DEVICE_INIT_SUCCESS) {
+        while (connParams->init_connection(&deviceConfig) != DEVICE_INIT_SUCCESS) {
             pr_info("conn: not connected. retrying\r\n");
             vTaskDelay(INIT_DELAY);
         }

@@ -1,70 +1,19 @@
-#include <3gpp.h>
+#include "3gpp.h"
 #include "mod_string.h"
 #include "printk.h"
 #include "devices_common.h"
+#include "stringutil.h"
+#include "modem.h"
+#include "modp_numtoa.h"
 
 #define COMMAND_WAIT    600
 
 static struct _3gppConnection _3gppConnections[MAX_3GPP_CONNECTIONS];
 
-static int strstartswith(const char * __restrict string, const char * __restrict prefix)
+static int _3gpp_process_incoming(DeviceConfig *config, char * buffer, size_t buffer_size)
 {
-    while(*prefix)
-    {
-        if(*prefix++ != *string++)
-            return 0;
-    }
-    return 1;
-}
-
-
-static int _3gpp_read_wait(DeviceConfig *config, size_t delay)
-{
-    int c = config->serial->get_line_wait(config->buffer, config->length, delay);
-    return c;
-}
-
-static void _3gpp_flush(DeviceConfig *config)
-{
-    config->buffer[0] = '\0';
-    config->serial->flush();
-}
-
-void _3gpp_puts(DeviceConfig *config, const char *data)
-{
-    config->serial->put_s(data);
-}
-
-static int _3gpp_read_response(DeviceConfig *config, const char *rsp, size_t wait)
-{
-    _3gpp_read_wait(config, wait);
-    pr_debug_str_msg("3gpp: cmd rsp: ", config->buffer);
-    int res = strncmp(config->buffer, rsp, strlen(rsp));
-    pr_debug_str_msg("3gpp: ", res == 0 ? "match" : "nomatch");
-    return res == 0;
-}
-
-static int _3gpp_send_command_wait_response(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait)
-{
-    _3gpp_flush(config);
-    _3gpp_puts(config, cmd);
-    put_crlf(config->serial);
-    return _3gpp_read_response(config, rsp, wait);
-}
-
-static int _3gpp_send_command_wait(DeviceConfig *config, const char *cmd, size_t wait)
-{
-    return _3gpp_send_command_wait_response(config, cmd, "OK", COMMAND_WAIT);
-}
-
-static int _3gpp_send_command(DeviceConfig *config, const char * cmd)
-{
-    return _3gpp_send_command_wait(config, cmd, COMMAND_WAIT);
-}
-
-static int _3gpp_process_incoming(Serial *serial, char * buffer, size_t buffer_size)
-{
-    pr_debug_str_msg("3gpp: cmd: ", buffer);
+    const Serial * serial = config->serial;
+	pr_debug_str_msg("3gpp: cmd: ", buffer);
     char *data_start = NULL;
     char *len_start = strtok_r(buffer, ",", &data_start);
 
@@ -78,12 +27,22 @@ static int _3gpp_process_incoming(Serial *serial, char * buffer, size_t buffer_s
 }
 
 
-static _3gpp_close_connection(Serial *serial, int connection_id){
+static int _3gpp_close_connection(DeviceConfig *config, int connection_id){
 
+	const Serial * serial = config->serial;
+	pr_debug_int_msg("3gpp: closing: ", connection_id);
+	_3gpp_puts("AT+CIPCLOSE=");
+	char buf[20];
+	modp_itoa10(connection_id, buf);
+	_3gpp_puts(serial, buf);
+	_3gpp_puts("\r");
+	int rc = _3gpp_read_response(config, "OK", COMMAND_WAIT);
+	return rc;
 }
 
-int _3gpp_process_data(Serial * serial, char * buffer, size_t buffer_size)
+int _3gpp_process_data(DeviceConfig *config, char * buffer, size_t buffer_size)
 {
+	Serial *serial = config->serial;
     int res = DEVICE_STATUS_OK;
     /* check for incoming data */
     if (strstartswith(buffer, "+IPD,") == 1 ) {

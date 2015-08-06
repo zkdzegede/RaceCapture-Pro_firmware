@@ -24,8 +24,9 @@
 #include "task.h"
 #include "taskUtil.h"
 #include "serial.h"
+#include "modem.h"
 
-#define WIFI_INIT_DELAY 100
+#define WIFI_INIT_DELAY 250
 #define COMMAND_WAIT    600
 static wifi_status_t g_wifi_status = WIFI_STATUS_NOT_INIT;
 
@@ -34,62 +35,17 @@ wifi_status_t wifi_get_status()
     return g_wifi_status;
 }
 
-static int read_wifi_wait(DeviceConfig *config, size_t delay)
-{
-    int c = config->serial->get_line_wait(config->buffer, config->length, delay);
-    return c;
-}
-
-static void flush_wifi(DeviceConfig *config)
-{
-    config->buffer[0] = '\0';
-    config->serial->flush();
-}
-
-void puts_wifi(DeviceConfig *config, const char *data)
-{
-    config->serial->put_s(data);
-}
-
-static int read_wifi_response(DeviceConfig *config, const char *rsp, size_t wait)
-{
-    read_wifi_wait(config, wait);
-    pr_info_str_msg("wifi: cmd rsp: ", config->buffer);
-    int res = strncmp(config->buffer, rsp, strlen(rsp));
-    pr_info_str_msg("wifi: ", res == 0 ? "match" : "nomatch");
-    return res == 0;
-}
-
-static int sendWifiCommandWaitResponse(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait)
-{
-    flush_wifi(config);
-    puts_wifi(config, cmd);
-    put_crlf(config->serial);
-    return read_wifi_response(config, rsp, wait);
-}
-
-static int sendWifiCommandWait(DeviceConfig *config, const char *cmd, size_t wait)
-{
-    return sendWifiCommandWaitResponse(config, cmd, "OK", COMMAND_WAIT);
-}
-
-static int sendCommand(DeviceConfig *config, const char * cmd)
-{
-    pr_info_str_msg("wifi: cmd: ", cmd);
-    return sendWifiCommandWait(config, cmd, COMMAND_WAIT);
-}
-
-static const char * baudConfigCmdForRate(unsigned int baudRate)
+static const char * baud_config_command_for_rate(unsigned int baudRate)
 {
     switch (baudRate) {
     case 9600:
-        return "AT+CIOBAUD=9600\n";
+        return "AT+CIOBAUD=9600";
         break;
     case 115200:
-        return "AT+CIOBAUD=115200\n";
+        return "AT+CIOBAUD=115200";
         break;
     case 230400:
-        return "AT+CIOBAUD=230400\n";
+        return "AT+CIOBAUD=230400";
         break;
     default:
         break;
@@ -102,7 +58,7 @@ static int configure_wifi_baud(DeviceConfig *config, unsigned int targetBaud)
 {
     pr_info_int_msg("wifi: Configuring baud Rate", targetBaud);
     //set baud rate
-    if (!sendCommand(config, baudConfigCmdForRate(targetBaud)))
+    if (!modem_send_command(config, baud_config_command_for_rate(targetBaud)))
         return -1;
     config->serial->init(8, 0, 1, targetBaud);
     return 0;
@@ -113,7 +69,7 @@ static int wifi_probe_baud(unsigned int probeBaud, unsigned int targetBaud, Devi
     pr_info_int_msg("wifi: Probing baud ", probeBaud);
     config->serial->init(8, 0, 1, probeBaud);
     int rc;
-    if (sendCommand(config, "AT") && (targetBaud == probeBaud || configure_wifi_baud(config, targetBaud) == 0)) {
+    if (modem_send_command(config, "AT") && (targetBaud == probeBaud || configure_wifi_baud(config, targetBaud) == 0)) {
         rc = DEVICE_INIT_SUCCESS;
     } else {
         rc = DEVICE_INIT_FAIL;
@@ -124,16 +80,10 @@ static int wifi_probe_baud(unsigned int probeBaud, unsigned int targetBaud, Devi
 
 static int config_wifi_mode(DeviceConfig *config)
 {
-
 	/* TODO un-hardcode me */
     uint8_t wifi_mode = 2; /* 2=AP; 1=STA; 3=both */
-
-	Serial *serial = config->serial;
-    flush_wifi(config);
-    serial->put_s("AT+CWMODE=");
-    put_uint(serial, wifi_mode);
-    put_crlf(serial);
-    return read_wifi_response(config, "OK", COMMAND_WAIT);
+	int rc = modem_set_value1(config, "AT+CWMODE=", wifi_mode);
+	return rc;
 }
 
 static int config_access_point(DeviceConfig *config)
@@ -145,7 +95,7 @@ static int config_access_point(DeviceConfig *config)
     uint8_t encryption = 2; /* 0=OPEN; 2=WPA_PSK; 3=WPA2_PSK, 4=WPA_WPA2_PSK */
 
 	Serial *serial = config->serial;
-    flush_wifi(config);
+    modem_flush(config);
     /* format is AT+CWSAP="ssid","pwd",channel,encryption */
     serial->put_s("AT+CWSAP=\"");
     serial->put_s(ssid);
@@ -156,38 +106,35 @@ static int config_access_point(DeviceConfig *config)
     serial->put_s(",");
     put_uint(serial, encryption);
     put_crlf(serial);
-
-    return read_wifi_response(config, "OK", COMMAND_WAIT);
+    return modem_read_response(config, "OK", COMMAND_WAIT);
 }
 
 static int reset_wifi(DeviceConfig *config)
 {
-	return sendCommand(config, "AT+RST\n");
+	int rc = modem_send_command(config, "AT+RST");
+	if (!rc) return rc;
+	rc = modem_send_command(config, "ATE0");
+	return rc;
 }
 
 static int wifi_configure_connection(DeviceConfig *config)
 {
 	/* Allow multiple TCP connections */
-	return sendCommand(config, "AT+CIPMUX=1");
+	int rc = modem_set_value1(config, "AT+CIPMUX=", 1);
+	return rc;
 }
 
 static int wifi_start_service(DeviceConfig *config)
 {
 	/* Start TCP server on the specified port */
-	/* Format is AT+ CIPSERVER= <mode>[,<port>] */
-	int port = 14600; /* TODO un-hardcode me */
-
-	Serial *serial = config->serial;
-    flush_wifi(config);
-    serial->put_s("AT+CIPSERVER=1,");
-    put_uint(serial, port);
-    put_crlf(serial);
-    return read_wifi_response(config, "OK", COMMAND_WAIT);
+	/* Format is AT+CIPSERVER= <mode>[,<port>] */
+	int port = 4444; /* TODO un-hardcode me */
+	int rc = modem_set_value2(config, "AT+CIPSERVER=", 1, port);
+	return rc;
 }
 
 static int config_wifi(DeviceConfig *config)
 {
-
 	if (!reset_wifi(config)) {
 		return -1;
 	}
@@ -217,8 +164,7 @@ int wifi_disconnect(DeviceConfig *config)
 
 int wifi_init_connection(DeviceConfig *config)
 {
-    //BluetoothConfig *btConfig = &(getWorkingLoggerConfig()->ConnectivityConfigs.bluetoothConfig);
-    unsigned int targetBaud = 230400;
+    unsigned int target_baud = 230400;
 
     //give a chance for wifi module to init
     delayMs(WIFI_INIT_DELAY);
@@ -227,21 +173,22 @@ int wifi_init_connection(DeviceConfig *config)
     const int rates[] = { 115200, 9600, 230400, 0 };
     const int *rate = rates;
     for (; *rate != 0; ++rate) {
-        const int status = wifi_probe_baud(*rate, targetBaud, config);
+        const int status = wifi_probe_baud(*rate, target_baud, config);
         if (status == 0)
             break;
     }
 
     if (*rate > 0) {
         pr_info("wifi: detected\r\n");
-        config->serial->init(8, 0, 1, targetBaud);
+        config->serial->init(8, 0, 1, target_baud);
     } else {
-        pr_info("wifi: Failed to detect module\r\n");
+        pr_info("wifi: failed to detect module\r\n");
         g_wifi_status = WIFI_STATUS_ERROR;
         return DEVICE_INIT_FAIL;
     }
 
-    if (config_wifi(config) != 0) {
+    int rc = config_wifi(config);
+    if (rc != 0) {
     	return DEVICE_INIT_FAIL;
     }
 

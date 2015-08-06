@@ -24,6 +24,7 @@
 #include "serial.h"
 #include "api.h"
 #include <stdbool.h>
+#include <devices_common.h>
 
 #define MAX_3GPP_CONNECTIONS 10
 
@@ -31,6 +32,10 @@ struct _3gppConnection {
     bool active;
 };
 
-int _3gpp_process_data(Serial * serial, char * buffer, size_t buffer_size);
+static int _3gpp_process_incoming(DeviceConfig *config, char * buffer, size_t buffer_size);
+
+static int _3gpp_close_connection(DeviceConfig *config, int connection_id);
+
+int _3gpp_process_data(DeviceConfig *config, char * buffer, size_t buffer_size);
 
 #endif /* _3GPP_H_ */

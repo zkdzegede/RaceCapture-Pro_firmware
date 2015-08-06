@@ -90,6 +90,7 @@ APP_SRC = 	$(APP_PATH)/main.c \
 			$(RCP_SRC)/logger/connectivityTask.c \
 			$(RCP_SRC)/logger/luaLoggerBinding.c \
 			$(RCP_SRC)/logger/sampleRecord.c \
+			$(RCP_SRC)/devices/modem.c \
 			$(RCP_SRC)/devices/bluetooth.c \
 			$(RCP_SRC)/devices/wifi.c \
 			$(RCP_SRC)/devices/cellModem.c \
@@ -110,6 +111,7 @@ APP_SRC = 	$(APP_PATH)/main.c \
 			$(RCP_SRC)/util/modp_numtoa.c \
 			$(RCP_SRC)/util/byteswap.c \
 			$(RCP_SRC)/util/taskUtil.c \
+			$(RCP_SRC)/util/stringutil.c \
 			$(RCP_SRC)/sdcard/sdcard.c \
 			$(HAL_SRC)/sim900_stm32/sim900_device_stm32.c \
 			$(HAL_SRC)/gps_skytraq/gps_device_skytraq.c \
