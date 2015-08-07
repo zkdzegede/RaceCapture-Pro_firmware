@@ -5,14 +5,21 @@
 #include "stringutil.h"
 #include "modem.h"
 #include "modp_numtoa.h"
+#include "api.h"
 
 #define COMMAND_WAIT    600
 
 static struct _3gppConnection _3gppConnections[MAX_3GPP_CONNECTIONS];
 
+static void _3gpp_set_connection_state(size_t connection_id, bool active)
+{
+	if (connection_id < MAX_3GPP_CONNECTIONS) {
+		_3gppConnections[connection_id].active = active;
+	}
+}
+
 static int _3gpp_process_incoming(DeviceConfig *config, char * buffer, size_t buffer_size)
 {
-    const Serial * serial = config->serial;
 	pr_debug_str_msg("3gpp: cmd: ", buffer);
     char *data_start = NULL;
     char *len_start = strtok_r(buffer, ",", &data_start);
@@ -21,32 +28,52 @@ static int _3gpp_process_incoming(DeviceConfig *config, char * buffer, size_t bu
     pr_debug_str_msg("len: " , len_start);
     pr_debug_str_msg("data: ", data_start);
 
+    int connection_id = 0;
+    process_api_device(config, connection_id, &_3gpp_prepare_send, &_3gpp_complete_send);
     int res = API_SUCCESS;
 
     return res == API_SUCCESS ? DEVICE_STATUS_OK : DEVICE_STATUS_FAULT;
 }
 
+int _3gpp_prepare_send(DeviceConfig *config, int connection_id)
+{
+	Serial *serial = config->serial;
+    modem_flush(config);
+    serial->put_s("AT+CIPSENDEX=");
+    put_int(serial, connection_id);
+    serial->put_s(",2048"); /* maximum send size */
+    put_crlf(serial);
 
-static int _3gpp_close_connection(DeviceConfig *config, int connection_id){
+    /* wait for the > prompt */
+    char c = 0;
+    while(1) {
+    	int rc = serial->get_c_wait(&c, COMMAND_WAIT);
+    	if (c == '>' || rc == 0) break;
+    }
+    return c == '>';
+}
 
-	const Serial * serial = config->serial;
+int _3gpp_complete_send(DeviceConfig *config, int connection_id)
+{
+	int rc = modem_read_response(config, "OK", COMMAND_WAIT);
+	if (!rc) {
+		_3gpp_set_connection_state(connection_id, false);
+	}
+	return rc;
+}
+
+int _3gpp_close_connection(DeviceConfig *config, int connection_id){
 	pr_debug_int_msg("3gpp: closing: ", connection_id);
-	_3gpp_puts("AT+CIPCLOSE=");
-	char buf[20];
-	modp_itoa10(connection_id, buf);
-	_3gpp_puts(serial, buf);
-	_3gpp_puts("\r");
-	int rc = _3gpp_read_response(config, "OK", COMMAND_WAIT);
+	int rc = modem_set_value1(config, "AT+CIPCLOSE=", connection_id);
 	return rc;
 }
 
 int _3gpp_process_data(DeviceConfig *config, char * buffer, size_t buffer_size)
 {
-	Serial *serial = config->serial;
     int res = DEVICE_STATUS_OK;
     /* check for incoming data */
     if (strstartswith(buffer, "+IPD,") == 1 ) {
-        res = _3gpp_process_incoming(serial, buffer + 5, buffer_size);
+        res = _3gpp_process_incoming(config, buffer + 5, buffer_size);
     }
     else {
         pr_warning_str_msg("3gpp: unknown message: " , buffer);

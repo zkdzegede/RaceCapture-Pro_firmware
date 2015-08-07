@@ -21,6 +21,8 @@
 
 #include "modem.h"
 #include "printk.h"
+#include "mod_string.h"
+
 #define COMMAND_WAIT    600
 
 int modem_read_wait(DeviceConfig *config, size_t delay)
@@ -44,9 +46,8 @@ int modem_read_response(DeviceConfig *config, const char *rsp, size_t wait)
 {
     modem_read_wait(config, wait);
     pr_debug_str_msg("modem: cmd rsp: ", config->buffer);
-    int res = strstr(config->buffer, rsp);
-    res = res != NULL;
-    return res;
+    char * res = strstr(config->buffer, rsp);
+    return res != NULL;
 }
 
 int modem_send_command_wait_response(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait)

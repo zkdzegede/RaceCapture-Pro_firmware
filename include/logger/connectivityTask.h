@@ -17,7 +17,7 @@ typedef struct _ConnParams {
     int (*disconnect)(DeviceConfig *config);
     int (*init_connection)(DeviceConfig *config);
     int (*check_connection_status)(DeviceConfig *config);
-    int (*process_data)(Serial *serial, char *buffer, size_t buffer_size);
+    int (*process_data)(DeviceConfig *config, char *buffer, size_t buffer_size);
     serial_id_t serial;
     size_t periodicMeta;
     uint32_t connection_timeout;

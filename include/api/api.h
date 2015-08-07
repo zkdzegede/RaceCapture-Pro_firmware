@@ -21,6 +21,7 @@
 
 #include "jsmn.h"
 #include "serial.h"
+#include "devices_common.h"
 
 #define API_SUCCESS_NO_RETURN 	2
 #define API_SUCCESS 			1
@@ -65,5 +66,6 @@ void json_arrayEnd(Serial *serial, int more);
 void json_sendResult(Serial *serial, const char *messageName, int resultCode);
 
 int process_api(Serial *serial, char * buffer, size_t bufferSize);
+int process_api_device(DeviceConfig *config, int connection_id, DeviceSendSetupHandler send_prepare, DeviceSendCompleteHandler send_complete);
 
 #endif /* API_H_ */

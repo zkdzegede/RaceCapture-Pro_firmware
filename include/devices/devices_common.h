@@ -16,6 +16,8 @@ typedef struct _DeviceConfig {
     size_t length;
 } DeviceConfig;
 
+typedef int (*DeviceSendSetupHandler)(DeviceConfig *, int);
+typedef int (*DeviceSendCompleteHandler)(DeviceConfig *, int);
 
 #define DEVICE_INIT_SUCCESS 			0
 #define DEVICE_INIT_FAIL				1
