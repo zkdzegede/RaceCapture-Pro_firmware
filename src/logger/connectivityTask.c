@@ -351,7 +351,7 @@ void connectivityTask(void *params)
                 last_message_time = getUptimeAsInt();
                 pr_debug(connParams->connectionName);
                 pr_debug_str_msg(": rx: ", buffer);
-                int msgRes = connParams->process_data(&deviceConfig, buffer, BUFFER_SIZE);
+                int msgRes = connParams->process_data(deviceConfig);
 
                 int msgError = (msgRes != DEVICE_STATUS_OK);
                 if (msgError) {

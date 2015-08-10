@@ -69,7 +69,7 @@ static int wifi_probe_baud(unsigned int probeBaud, unsigned int targetBaud, Devi
     pr_info_int_msg("wifi: Probing baud ", probeBaud);
     config->serial->init(8, 0, 1, probeBaud);
     int rc;
-    if (modem_send_command(config, "AT") && (targetBaud == probeBaud || configure_wifi_baud(config, targetBaud) == 0)) {
+    if (modem_send_command_wait(config, "AT", COMMAND_WAIT, 1) && (targetBaud == probeBaud || configure_wifi_baud(config, targetBaud) == 0)) {
         rc = DEVICE_INIT_SUCCESS;
     } else {
         rc = DEVICE_INIT_FAIL;
@@ -81,6 +81,7 @@ static int wifi_probe_baud(unsigned int probeBaud, unsigned int targetBaud, Devi
 static int config_wifi_mode(DeviceConfig *config)
 {
 	/* TODO un-hardcode me */
+	pr_info("config wifi mode\r\n");
     uint8_t wifi_mode = 2; /* 2=AP; 1=STA; 3=both */
 	int rc = modem_set_value1(config, "AT+CWMODE=", wifi_mode);
 	return rc;
@@ -88,11 +89,12 @@ static int config_wifi_mode(DeviceConfig *config)
 
 static int config_access_point(DeviceConfig *config)
 {
+	pr_info("config access point\r\n");
 	/* TODO un-hardcode me */
     const char *ssid = "rcp";
-    const char *password = "1234";
+    const char *password = "megaj01t";
     uint8_t channel = 5;
-    uint8_t encryption = 2; /* 0=OPEN; 2=WPA_PSK; 3=WPA2_PSK, 4=WPA_WPA2_PSK */
+    uint8_t encryption = 3; /* 0=OPEN; 2=WPA_PSK; 3=WPA2_PSK, 4=WPA_WPA2_PSK */
 
 	Serial *serial = config->serial;
     modem_flush(config);
@@ -101,24 +103,27 @@ static int config_access_point(DeviceConfig *config)
     serial->put_s(ssid);
     serial->put_s("\",\"");
     serial->put_s(password);
-    serial->put_s(",");
+    serial->put_s("\",");
     put_uint(serial, channel);
     serial->put_s(",");
     put_uint(serial, encryption);
     put_crlf(serial);
-    return modem_read_response(config, "OK", COMMAND_WAIT);
+    return modem_read_response(config, "OK", COMMAND_WAIT, 0);
 }
 
 static int reset_wifi(DeviceConfig *config)
 {
-	int rc = modem_send_command(config, "AT+RST");
-	if (!rc) return rc;
-	rc = modem_send_command(config, "ATE0");
+//	int rc = modem_send_command(config, "AT+RST");
+//	if (!rc) return rc;
+	pr_info("before reset\r\n");
+	int rc = modem_send_command_wait(config, "ATE0", COMMAND_WAIT, 1);
+	pr_info("after reset\r\n");
 	return rc;
 }
 
 static int wifi_configure_connection(DeviceConfig *config)
 {
+	pr_info("configure connection\r\n");
 	/* Allow multiple TCP connections */
 	int rc = modem_set_value1(config, "AT+CIPMUX=", 1);
 	return rc;
@@ -126,6 +131,7 @@ static int wifi_configure_connection(DeviceConfig *config)
 
 static int wifi_start_service(DeviceConfig *config)
 {
+	pr_info("start service	\r\n");
 	/* Start TCP server on the specified port */
 	/* Format is AT+CIPSERVER= <mode>[,<port>] */
 	int port = 4444; /* TODO un-hardcode me */
@@ -164,13 +170,14 @@ int wifi_disconnect(DeviceConfig *config)
 
 int wifi_init_connection(DeviceConfig *config)
 {
-    unsigned int target_baud = 230400;
+    unsigned int target_baud = 115200;
 
     //give a chance for wifi module to init
     delayMs(WIFI_INIT_DELAY);
 
     // Zero terminated
-    const int rates[] = { 115200, 9600, 230400, 0 };
+    //const int rates[] = { 115200, 9600, 230400, 0 };
+    const int rates[] = { 115200,  0 };
     const int *rate = rates;
     for (; *rate != 0; ++rate) {
         const int status = wifi_probe_baud(*rate, target_baud, config);

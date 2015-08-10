@@ -35,10 +35,10 @@ struct _3gppConnection {
 
 int _3gpp_close_connection(DeviceConfig *config, int connection_id);
 
-int _3gpp_process_data(DeviceConfig *config, char * buffer, size_t buffer_size);
+int _3gpp_process_data(DeviceConfig config);
 
-int _3gpp_prepare_send(DeviceConfig *config, int connection_id);
+int _3gpp_prepare_send(DeviceConfig config, int connection_id);
 
-int _3gpp_complete_send(DeviceConfig *config, int connection_id);
+int _3gpp_complete_send(DeviceConfig config, int connection_id);
 
 #endif /* _3GPP_H_ */

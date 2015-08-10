@@ -28,6 +28,7 @@
 int modem_read_wait(DeviceConfig *config, size_t delay)
 {
     int c = config->serial->get_line_wait(config->buffer, config->length, delay);
+    pr_info_str_msg("read: ", config->buffer);
     return c;
 }
 
@@ -42,36 +43,48 @@ void modem_puts(DeviceConfig *config, const char *data)
     config->serial->put_s(data);
 }
 
-int modem_read_response(DeviceConfig *config, const char *rsp, size_t wait)
+int modem_read_response(DeviceConfig *config, const char *rsp, size_t wait, uint8_t echo_mode)
 {
-    modem_read_wait(config, wait);
-    pr_debug_str_msg("modem: cmd rsp: ", config->buffer);
-    char * res = strstr(config->buffer, rsp);
-    return res != NULL;
+	modem_read_wait(config, wait);
+	echo_mode++;
+    while (echo_mode--) {
+    	modem_read_wait(config, wait);
+        pr_info_str_msg("modem: cmd rsp: ", config->buffer);
+        char * res = strstr(config->buffer, rsp);
+        if (res != NULL) {
+        	pr_info("found!\r\n");
+        	return 1;
+        }
+    }
+    return 0;
 }
 
-int modem_send_command_wait_response(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait)
+int modem_send_command_wait_response(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait, uint8_t echo_mode)
 {
     modem_flush(config);
+    pr_info_str_msg("modem: send msg: ", cmd);
     modem_puts(config, cmd);
     put_crlf(config->serial);
-    int rc = modem_read_response(config, rsp, wait);
+    int rc = modem_read_response(config, rsp, wait, echo_mode);
     if (!rc) {
-    	pr_error("modem: command failed: ");
+    	pr_error("modem: command failed: '");
     	pr_error(cmd);
-    	pr_error_str_msg(" ; rsp:", rsp);
+    	pr_error("' ; rsp: '");
+    	pr_error(config->buffer);
+    	pr_error("' ");
+    	pr_error_str_msg("expected: ",rsp);
     }
     return rc;
 }
 
-int modem_send_command_wait(DeviceConfig *config, const char *cmd, size_t wait)
+int modem_send_command_wait(DeviceConfig *config, const char *cmd, size_t wait, uint8_t echo_mode)
 {
-    return modem_send_command_wait_response(config, cmd, "OK", COMMAND_WAIT);
+    return modem_send_command_wait_response(config, cmd, "OK", COMMAND_WAIT, echo_mode);
 }
 
 int modem_send_command(DeviceConfig *config, const char * cmd)
 {
-    return modem_send_command_wait(config, cmd, COMMAND_WAIT);
+    return modem_send_command_wait(config, cmd, COMMAND_WAIT, 0);
 }
 
 int modem_set_value1(DeviceConfig *config, const char * command, int value1)
@@ -81,7 +94,7 @@ int modem_set_value1(DeviceConfig *config, const char * command, int value1)
     serial->put_s(command);
     put_int(serial, value1);
     put_crlf(serial);
-    int rc = modem_read_response(config, "OK", COMMAND_WAIT);
+    int rc = modem_read_response(config, "OK", COMMAND_WAIT, 0);
     return rc;
 }
 
@@ -94,6 +107,6 @@ int modem_set_value2(DeviceConfig *config, const char * command, int value1, int
     serial->put_s(",");
     put_int(serial, value2);
     put_crlf(serial);
-    int rc = modem_read_response(config, "OK", COMMAND_WAIT);
+    int rc = modem_read_response(config, "OK", COMMAND_WAIT, 0);
     return rc;
 }

@@ -28,11 +28,11 @@ void modem_flush(DeviceConfig *config);
 
 void modem_puts(DeviceConfig *config, const char *data);
 
-int modem_read_response(DeviceConfig *config, const char *rsp, size_t wait);
+int modem_read_response(DeviceConfig *config, const char *rsp, size_t wait, uint8_t echo_mode);
 
-int modem_send_command_wait_response(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait);
+int modem_send_command_wait_response(DeviceConfig *config, const char *cmd, const char *rsp, size_t wait, uint8_t echo_mode);
 
-int modem_send_command_wait(DeviceConfig *config, const char *cmd, size_t wait);
+int modem_send_command_wait(DeviceConfig *config, const char *cmd, size_t wait, uint8_t echo_mode);
 
 int modem_send_command(DeviceConfig *config, const char * cmd);
 
