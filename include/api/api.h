@@ -65,7 +65,6 @@ void json_arrayElementFloat(Serial *serial, float value, int precision, int more
 void json_arrayEnd(Serial *serial, int more);
 void json_sendResult(Serial *serial, const char *messageName, int resultCode);
 
-int process_api(Serial *serial, char * buffer, size_t bufferSize);
-int process_api_device(DeviceConfig config, int connection_id, DeviceSendSetupHandler send_prepare, DeviceSendCompleteHandler send_complete);
+int process_api(Serial *serial, char * buffer);
 
 #endif /* API_H_ */

@@ -172,6 +172,6 @@ int bt_check_connection_status(DeviceConfig *config)
 int bt_process_data(Serial * serial, char * buffer, size_t buffer_size)
 {
     /* bluetooth mode is always transparent, so pass it through to the API */
-    int res = process_api(serial, buffer, buffer_size);
+    int res = process_api(serial, buffer);
     return res == API_SUCCESS ? DEVICE_STATUS_OK : DEVICE_STATUS_FAULT;
 }

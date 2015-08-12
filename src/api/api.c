@@ -217,7 +217,7 @@ static int execute_api(Serial * serial, const jsmntok_t *json)
     }
 }
 
-int process_api(Serial *serial, char *buffer, size_t bufferSize)
+int process_api(Serial *serial, char *buffer)
 {
     jsmn_init(&g_jsonParser);
     memset(g_json_tok, 0, sizeof(g_json_tok));
@@ -225,33 +225,6 @@ int process_api(Serial *serial, char *buffer, size_t bufferSize)
     int r = jsmn_parse(&g_jsonParser, buffer, g_json_tok, JSON_TOKENS);
     if (r == JSMN_SUCCESS) {
         return execute_api(serial, g_json_tok);
-    } else {
-        pr_warning_int_msg("API Error: ", r);
-        return API_ERROR_MALFORMED;
-    }
-}
-
-int process_api_device(DeviceConfig config, int connection_id, DeviceSendSetupHandler send_prepare, DeviceSendCompleteHandler send_complete)
-{
-	Serial *serial = config.serial;
-    jsmn_init(&g_jsonParser);
-    memset(g_json_tok, 0, sizeof(g_json_tok));
-
-    int r = jsmn_parse(&g_jsonParser, config.buffer, g_json_tok, JSON_TOKENS);
-    if (r == JSMN_SUCCESS) {
-    	/* set up the message transmit */
-    	int prepare_rc = send_prepare(config, connection_id);
-    	if (!prepare_rc) {
-    		return API_ERROR_SEVERE;
-    	}
-    	/* execute the API command. will emit a message in reply */
-        int api_rc = execute_api(serial, g_json_tok);
-        /* complete the message transmit*/
-        int send_rc = send_complete(config, connection_id);
-        if (!send_rc) {
-        	pr_warning_int_msg("api: failed to confirm message sent: ", connection_id);
-        }
-        return api_rc;
     } else {
         pr_warning_int_msg("API Error: ", r);
         return API_ERROR_MALFORMED;

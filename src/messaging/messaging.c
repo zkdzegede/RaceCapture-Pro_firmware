@@ -25,13 +25,13 @@ void process_msg(Serial *serial, char * buffer, size_t bufferSize)
             lockedApiMode = 0;
             show_command_prompt(serial);
         } else {
-            process_api(serial, buffer, bufferSize);
+            process_api(serial, buffer);
         }
     } else {
         interactive_read_line(serial, buffer, bufferSize);
         if (buffer[0] == '{') {
             lockedApiMode = 1;
-            process_api(serial, buffer, bufferSize);
+            process_api(serial, buffer);
         } else {
             if (strlen(buffer) == 0) {
                 show_welcome(serial);
