@@ -2655,7 +2655,7 @@ FRESULT f_read (FIL* fp, void* buff, UINT btr, UINT* br)
 /* Write File                                                            */
 /*-----------------------------------------------------------------------*/
 
-FRESULT f_write (
+static FRESULT f_write_unprotected (
     FIL* fp,			/* Pointer to the file object */
     const void *buff,	/* Pointer to the data to be written */
     UINT btw,			/* Number of bytes to write */
@@ -2767,6 +2767,19 @@ FRESULT f_write (
     fp->flag |= FA__WRITTEN;						/* Set file change flag */
 
     LEAVE_FF(fp->fs, FR_OK);
+}
+
+FRESULT f_write (
+    FIL* fp,			/* Pointer to the file object */
+    const void *buff,	/* Pointer to the data to be written */
+    UINT btw,			/* Number of bytes to write */
+    UINT* bw			/* Pointer to number of bytes written */
+)
+{
+        lock_spi();
+        const FRESULT rc = f_write_unprotected(fp, buff, btw, bw);
+        unlock_spi();
+        return rc;
 }
 
 
@@ -3020,7 +3033,7 @@ FRESULT f_getcwd (
 /* Seek File R/W Pointer                                                 */
 /*-----------------------------------------------------------------------*/
 
-FRESULT f_lseek (
+static FRESULT f_lseek_unprotected (
     FIL* fp,		/* Pointer to the file object */
     DWORD ofs		/* File pointer from top of file */
 )
@@ -3177,6 +3190,16 @@ FRESULT f_lseek (
     LEAVE_FF(fp->fs, res);
 }
 
+FRESULT f_lseek (
+    FIL* fp,		/* Pointer to the file object */
+    DWORD ofs		/* File pointer from top of file */
+)
+{
+        lock_spi();
+        const FRESULT rc = f_lseek_unprotected(fp, ofs);
+        unlock_spi();
+        return rc;
+}
 
 
 #if _FS_MINIMIZE <= 1
@@ -4497,14 +4520,13 @@ int f_putc (
 /* Put a string to the file                                              */
 /*-----------------------------------------------------------------------*/
 
-static int f_puts_unprotected (
+int f_puts (
     const TCHAR* str,	/* Pointer to the string to be output */
     FIL* fp				/* Pointer to the file object */
 )
 {
     putbuff pb;
     UINT nw;
-
 
     pb.fp = fp;				/* Initialize output buffer */
     pb.nchr = pb.idx = 0;
@@ -4517,17 +4539,6 @@ static int f_puts_unprotected (
            && (UINT)pb.idx == nw) return pb.nchr;
     return EOF;
 }
-
-int f_puts(const TCHAR* str, FIL* fp)
-{
-    int rc;
-    lock_spi();
-    rc = f_puts_unprotected(str, fp);
-    unlock_spi();
-    return rc;
-}
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Put a formatted string to the file                                    */
