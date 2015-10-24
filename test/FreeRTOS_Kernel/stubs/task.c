@@ -45,6 +45,16 @@ void vTaskDelay(portTickType xTicksToDelay) {
         usleep((useconds_t)xTicksToDelay * 1000);
 }
 
+void vTaskDelayUntil(portTickType *pxPreviousWakeTime,
+                     portTickType xTimeIncrement)
+{
+        const portTickType next_wake_tick =
+                *pxPreviousWakeTime + xTimeIncrement;
+        const portTickType tick = xTaskGetTickCount();
+        if (next_wake_tick > tick)
+                vTaskDelay(next_wake_tick - tick);
+}
+
 signed portBASE_TYPE xTaskGenericCreate(
         pdTASK_CODE pvTaskCode,
         const signed char * const pcName,

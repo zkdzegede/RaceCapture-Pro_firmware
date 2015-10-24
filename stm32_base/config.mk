@@ -109,6 +109,8 @@ APP_SRC = 	$(APP_PATH)/main.c \
 			$(RCP_SRC)/util/byteswap.c \
 			$(RCP_SRC)/util/taskUtil.c \
 			$(RCP_SRC)/sdcard/sdcard.c \
+			$(RCP_SRC)/slip_angle/slip_angle.c \
+			$(RCP_SRC)/slip_angle/slip_angle_task.c \
 			$(HAL_SRC)/sim900_stm32/sim900_device_stm32.c \
 			$(HAL_SRC)/gps_skytraq/gps_device_skytraq.c \
 			$(HAL_SRC)/LED_stm32/LED_device_stm32.c \
@@ -179,6 +181,7 @@ APP_INCLUDES += -I. \
 				-I$(INCLUDE_DIR)/gps \
 				-I$(INCLUDE_DIR)/lap_stats \
 				-I$(INCLUDE_DIR) \
+				-I$(INCLUDE_DIR)/slip_angle \
 				-I$(INCLUDE_DIR)/sdcard \
 				-I$(INCLUDE_DIR)/command \
 				-I$(INCLUDE_DIR)/virtual_channel \

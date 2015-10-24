@@ -60,6 +60,7 @@ INCLUDES = 	-I. \
 		-I$(RCP_INC)/watchdog \
 		-I$(RCP_INC)/memory \
 		-I$(RCP_INC)/sdcard \
+		-I$(RCP_INC)/slip_angle \
 		-I$(RCP_INC)/lap_stats \
 		-I$(MOCK_DIR) \
 		-I$(GPS_DIR) \
@@ -148,6 +149,8 @@ SRC =		mock_uart.c \
 		$(RCP_SRC)/GPIO/GPIO.c \
 		$(RCP_SRC)/watchdog/watchdog.c \
 		$(RCP_SRC)/CAN/CAN.c \
+		$(RCP_SRC)/slip_angle/slip_angle.c \
+		$(RCP_SRC)/slip_angle/slip_angle_task.c \
 		$(MOCK_DIR)/imu_device_mock.c \
 		$(MOCK_DIR)/timer_device_mock.c \
 		$(MOCK_DIR)/ADC_device_mock.c \

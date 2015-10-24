@@ -46,6 +46,7 @@
 #include "luaTask.h"
 #include "messaging.h"
 #include "printk.h"
+#include "slip_angle_task.h"
 #include "task.h"
 #include "usb_comm.h"
 #include "watchdog.h"
@@ -118,6 +119,7 @@ void setupTask(void *delTask)
         startGPIOTasks(RCP_INPUT_PRIORITY);
         startGPSTask(RCP_INPUT_PRIORITY);
         startOBD2Task(RCP_INPUT_PRIORITY);
+        start_slip_angle_task(RCP_INPUT_PRIORITY);
         startFileWriterTask(RCP_OUTPUT_PRIORITY);
         startLoggerTaskEx(RCP_LOGGING_PRIORITY);
         startLuaTask(RCP_LUA_PRIORITY);
