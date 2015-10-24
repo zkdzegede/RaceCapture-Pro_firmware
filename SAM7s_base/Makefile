@@ -137,6 +137,7 @@ UTIL_DIR = $(SRC_DIR)/util
 JSON_DIR = ./json
 GPS_SRC_DIR = $(SRC_DIR)/gps
 LAP_STATS_SRC_DIR = $(SRC_DIR)/lap_stats
+SLIP_ANGLE_SRC_DIR = $(SRC_DIR)/slip_angle
 
 #App specific dirs
 FAT_SD_SRC_DIR = $(SAM7s_BASE_DIR)/fat_sd_at91
@@ -167,6 +168,8 @@ $(FAT_SD_SRC_DIR)/fattime.c \
 $(FAT_SD_SRC_DIR)/ff.c \
 $(FAT_SD_SRC_DIR)/sd_spi_at91.c \
 $(SDCARD_SRC_DIR)/sdcard.c \
+$(SLIP_ANGLE_SRC_DIR)/slip_angle.c \
+$(SLIP_ANGLE_SRC_DIR)/slip_angle_task.c \
 $(IMU_SRC_DIR)/imu.c \
 $(LAP_STATS_SRC_DIR)/lap_stats.c \
 $(LOGGER_SRC_DIR)/sampleRecord.c \
@@ -358,6 +361,7 @@ CINCS = \
 -I$(INCLUDE_DIR)/gps \
 -I$(INCLUDE_DIR)/lap_stats \
 -I$(INCLUDE_DIR)/sdcard \
+-I$(INCLUDE_DIR)/slip_angle \
 -I$(INCLUDE_DIR)/command \
 -I$(INCLUDE_DIR)/virtual_channel \
 -I$(INCLUDE_DIR)/auto_config \

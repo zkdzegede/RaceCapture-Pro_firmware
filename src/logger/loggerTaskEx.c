@@ -37,6 +37,8 @@
 #include "printk.h"
 #include "sampleRecord.h"
 #include "semphr.h"
+#include "slip_angle.h"
+#include "slip_angle_task.h"
 #include "task.h"
 #include "taskUtil.h"
 #include "watchdog.h"
@@ -195,6 +197,8 @@ void loggerTaskEx(void *params)
                         lapstats_reset_distance();
                         currentTicks = 0;
                         g_configChanged = 0;
+                        init_slip_angle();
+                        init_slip_angle_yaw_cfg();
                 }
 
                 /* Only reset the watchdog when we are configured and ready to rock */
