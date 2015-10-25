@@ -1,9 +1,9 @@
 /*
- * Race Capture Pro Firmware
+ * Race Capture Firmware
  *
  * Copyright (C) 2015 Autosport Labs
  *
- * This file is part of the Race Capture Pro fimrware suite
+ * This file is part of the Race Capture firmware suite
  *
  * This is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -444,14 +444,13 @@ static void fileWriterTask(void *params)
 
 void startFileWriterTask(int priority)
 {
-        g_LoggerMessage_queue = create_logger_message_queue(
-                SAMPLE_RECORD_QUEUE_SIZE);
+        g_LoggerMessage_queue = create_logger_message_queue();
         if (NULL == g_LoggerMessage_queue) {
                 pr_error(_RCP_BASE_FILE_ "LoggerMessage Queue is null!\r\n");
                 return;
         }
 
-        g_logfile = (FIL *) pvPortMalloc(sizeof(FIL));
+        g_logfile = (FIL *) portMalloc(sizeof(FIL));
         if (NULL == g_logfile) {
                 pr_error(_RCP_BASE_FILE_ "logfile sruct alloc err\r\n");
                 return;

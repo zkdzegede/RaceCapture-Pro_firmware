@@ -1,9 +1,9 @@
 /**
- * Race Capture Pro Firmware
+ * Race Capture Firmware
  *
  * Copyright (C) 2014 Autosport Labs
  *
- * This file is part of the Race Capture Pro fimrware suite
+ * This file is part of the Race Capture firmware suite
  *
  * This is free software: you can redistribute it and/or modify it under the terms of the
  * GNU General Public License as published by the Free Software Foundation, either version 3 of the
@@ -47,5 +47,11 @@ float distPythag(const GeoPoint *a, const GeoPoint *b);
  * @return true if the given point is valid, false otherwise.
  */
 int isValidPoint(const GeoPoint *p);
+
+/**
+ * Tests if both GeoPoint values are the same.
+ * @return True if they are, false otherwise.
+ */
+bool are_geo_points_equal(const GeoPoint *p1, const GeoPoint *p2);
 
 #endif /* GEOPOINT_H_ */
