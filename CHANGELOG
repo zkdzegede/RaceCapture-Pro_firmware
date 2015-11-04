@@ -1,8 +1,4 @@
 === 2.9.0 ===
-*  Added slip angle (drift angle) support.  This channel estimates the slip
-   angle of the vehicle by combining integrations of the yaw sensors with
-   kinetic-Kalman filters to produce an accurate estimate of what the slip
-   angle of the vehicle
 * Code cleanup around the some API methods.  Also eliminates unused variable
   errors and removes some unneeded variables.
 * Added support for a GPS heading channel.  This represents the heading of the
