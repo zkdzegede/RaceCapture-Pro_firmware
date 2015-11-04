@@ -13,6 +13,7 @@ MESSAGING_SRC=$(RCP_SRC)/messaging
 COMMAND_SRC=$(RCP_SRC)/command
 MOCK_DIR=logger_mock
 GPS_DIR=gps
+SLIP_ANGLE_DIR=slip_angle
 FREE_RTOS_KERNEL_DIR=FreeRTOS_Kernel
 LAP_STATS_DIR=lap_stats
 UTIL_DIR=util
@@ -62,6 +63,7 @@ INCLUDES = 	-I. \
 		-I$(RCP_INC)/sdcard \
 		-I$(RCP_INC)/slip_angle \
 		-I$(RCP_INC)/lap_stats \
+		-I$(RCP_SRC)/slip_angle \
 		-I$(MOCK_DIR) \
 		-I$(GPS_DIR) \
 		-I$(LAP_STATS_DIR) \
@@ -114,6 +116,8 @@ T_SRC = loggerApi_test.cpp \
 		$(UTIL_DIR)/numtoa_test.cpp \
 		$(UTIL_DIR)/atonum_test.cpp \
 		ring_buffer_test.cpp \
+		$(SLIP_ANGLE_DIR)/SlipAngleTest.cpp \
+		$(SLIP_ANGLE_DIR)/SlipAngleTaskTest.cpp \
 
 SRC =		mock_uart.c \
 		mock_gps_device.c \
@@ -149,8 +153,6 @@ SRC =		mock_uart.c \
 		$(RCP_SRC)/GPIO/GPIO.c \
 		$(RCP_SRC)/watchdog/watchdog.c \
 		$(RCP_SRC)/CAN/CAN.c \
-		$(RCP_SRC)/slip_angle/slip_angle.c \
-		$(RCP_SRC)/slip_angle/slip_angle_task.c \
 		$(MOCK_DIR)/imu_device_mock.c \
 		$(MOCK_DIR)/timer_device_mock.c \
 		$(MOCK_DIR)/ADC_device_mock.c \
