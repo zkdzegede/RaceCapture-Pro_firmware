@@ -30,8 +30,6 @@
 
 CPPUNIT_TEST_SUITE_REGISTRATION( SlipAngleTest );
 
-SlipAngleTest::SlipAngleTest() {}
-
 void SlipAngleTest::test_init()
 {
         body_heading = last_heading_gps = -1;
@@ -64,9 +62,15 @@ void SlipAngleTest::test_wrap_degrees_delta()
         CPPUNIT_ASSERT_EQUAL((float) 181, wrap_degrees_delta(-179));
 }
 
-//void SlipAngleTest::test_driving_straight() {}
+void SlipAngleTest::test_going_straight() {
+        CPPUNIT_ASSERT(going_straight(42, 42));
 
-//void SlipAngleTest::test_not_driving_straight() {}
+        CPPUNIT_ASSERT(going_straight(42 + HEADING_SLOP, 42));
+        CPPUNIT_ASSERT(!going_straight(42 + HEADING_SLOP + .01, 42));
+
+        CPPUNIT_ASSERT(going_straight(42 - HEADING_SLOP, 42));
+        CPPUNIT_ASSERT(!going_straight(42 - HEADING_SLOP - .01, 42));
+}
 
 void SlipAngleTest::test_gps_update_no_heading()
 {
@@ -90,8 +94,41 @@ void SlipAngleTest::test_gps_update_no_last_heading()
         slip_angle_gps_update(&gss);
 
         CPPUNIT_ASSERT_EQUAL(gss.heading, last_heading_gps);
+
+        /* This just checks that there is no change. */
         CPPUNIT_ASSERT_EQUAL((float) 43, body_heading);
 }
 
-//void SlipAngleTest::test_gps_update_going_straight() {}
-//void SlipAngleTest::test_gps_update_going_turning() {}
+void SlipAngleTest::test_gps_update_going_straight()
+{
+        GpsSnapshot gss;
+        gss.heading = 42;
+        last_heading_gps = gss.heading;
+        body_heading = 43;
+
+        /* Called like this will cause noise measurement of yaw gyro */
+        slip_angle_gps_update(&gss);
+
+        CPPUNIT_ASSERT_EQUAL(gss.heading, last_heading_gps);
+
+        /* This just checks that there is no change. */
+        CPPUNIT_ASSERT_EQUAL((float) 43, body_heading);
+}
+
+void SlipAngleTest::test_gps_update_not_going_straight()
+{
+        GpsSnapshot gss;
+        const float yaw_delta = -5;
+        gss.heading = 52;
+        last_heading_gps = 42;
+        body_heading = 0;
+        set_yaw_delta(yaw_delta);
+
+        /* Called like this will cause body_heading to update */
+        slip_angle_gps_update(&gss);
+
+        CPPUNIT_ASSERT_EQUAL(gss.heading, last_heading_gps);
+
+        /* This just checks that there is no change. */
+        CPPUNIT_ASSERT_EQUAL(gss.heading + yaw_delta, body_heading);
+}

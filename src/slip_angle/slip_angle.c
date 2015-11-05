@@ -28,8 +28,7 @@
 #include <stdbool.h>
 #include <math.h>
 
-#define GPS_DEG_SLOP	1
-#define INTGRL_DEG_SLOP	1
+#define HEADING_SLOP	1
 #define LOG_PFX	"[slip_angle] "
 
 static float body_heading;
@@ -72,12 +71,18 @@ static float wrap_degrees_delta(float delta)
         return delta;
 }
 
-static bool driving_straight(const float heading_gps, const float yaw_delta)
+/**
+ * Compares two headings (assuming their measurements are close in time) to
+ * one another to ensure that they are almost the same.
+ * @param curr_heading The current heading (0 < Heading <= 360)
+ * @param curr_heading The previous heading (0 < Heading <= 360)
+ * @return true if they are within the HEADING_SLOP tolerance, false otherwise.
+ */
+static bool going_straight(const float curr_heading,
+                           const float prev_heading)
 {
-        const float gps_delta =
-                wrap_degrees_delta(heading_gps - last_heading_gps);
-        return fabs(gps_delta) <= GPS_DEG_SLOP &&
-                fabs(yaw_delta) <= INTGRL_DEG_SLOP;
+        const float delta = wrap_degrees_delta(curr_heading - prev_heading);
+        return fabs(delta) <= HEADING_SLOP;
 }
 
 void slip_angle_gps_update(const GpsSnapshot *gps_ss)
@@ -92,14 +97,12 @@ void slip_angle_gps_update(const GpsSnapshot *gps_ss)
                  * Then we have a good current and last heading.  So we
                  * can see if we are driving straight or not.
                  */
-                const float yaw_delta = get_yaw_delta();
-                if (driving_straight(heading_gps, yaw_delta)) {
-                        /*
-                         * Reset integral value to current heading to
-                         * eliminate noise in the yaw channel.
-                         */
-                        reset_yaw_delta();
+
+                if (going_straight(heading_gps, last_heading_gps)) {
+                        /* If here, then we measure bias. */
+                        (void) 0;
                 } else {
+                        const float yaw_delta = get_yaw_delta();
                         body_heading = wrap_degrees(heading_gps + yaw_delta);
                 }
         }

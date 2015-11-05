@@ -31,28 +31,24 @@ class SlipAngleTest : public CppUnit::TestCase
         /* Tests to Run */
         CPPUNIT_TEST(test_init);
         CPPUNIT_TEST(test_wrap_degrees);
-        //CPPUNIT_TEST(test_driving_straight);
-        //CPPUNIT_TEST(test_not_driving_straight);
+        CPPUNIT_TEST(test_going_straight);
         CPPUNIT_TEST(test_gps_update_no_heading);
         CPPUNIT_TEST(test_gps_update_no_last_heading);
-        //CPPUNIT_TEST(test_gps_update_going_straight);
-        //CPPUNIT_TEST(test_gps_update_going_turning);
+        CPPUNIT_TEST(test_gps_update_going_straight);
+        CPPUNIT_TEST(test_gps_update_not_going_straight);
 
         CPPUNIT_TEST_SUITE_END();
 
 public:
-        SlipAngleTest();
         void test_init();
         void test_wrap_degrees();
         void test_wrap_degrees_delta();
-        //void test_driving_straight();
-        //void test_not_driving_straight();
+        void test_going_straight();
         void test_gps_update_no_heading();
         void test_gps_update_no_last_heading();
-        //void test_gps_update_going_straight();
-        //void test_gps_update_going_turning();
+        void test_gps_update_going_straight();
+        void test_gps_update_not_going_straight();
 
-private:
 };
 
 #endif /* _SLIPANGLETEST_H_ */
