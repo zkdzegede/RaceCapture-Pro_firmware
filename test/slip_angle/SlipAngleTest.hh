@@ -36,6 +36,7 @@ class SlipAngleTest : public CppUnit::TestCase
         CPPUNIT_TEST(test_gps_update_no_last_heading);
         CPPUNIT_TEST(test_gps_update_going_straight);
         CPPUNIT_TEST(test_gps_update_not_going_straight);
+        CPPUNIT_TEST(test_get_slip_angle);
 
         CPPUNIT_TEST_SUITE_END();
 
@@ -48,7 +49,7 @@ public:
         void test_gps_update_no_last_heading();
         void test_gps_update_going_straight();
         void test_gps_update_not_going_straight();
-
+        void test_get_slip_angle();
 };
 
 #endif /* _SLIPANGLETEST_H_ */

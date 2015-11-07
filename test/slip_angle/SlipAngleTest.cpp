@@ -132,3 +132,19 @@ void SlipAngleTest::test_gps_update_not_going_straight()
         /* This just checks that there is no change. */
         CPPUNIT_ASSERT_EQUAL(gss.heading + yaw_delta, body_heading);
 }
+
+void SlipAngleTest::test_get_slip_angle()
+{
+        last_heading_gps = 42;
+        body_heading = 40;
+
+        CPPUNIT_ASSERT_EQUAL(body_heading - last_heading_gps,
+                             get_slip_angle());
+
+        last_heading_gps = 0;
+        CPPUNIT_ASSERT_EQUAL((float) 0, get_slip_angle());
+
+        last_heading_gps = 42;
+        body_heading = 0;
+        CPPUNIT_ASSERT_EQUAL((float) 0, get_slip_angle());
+}
