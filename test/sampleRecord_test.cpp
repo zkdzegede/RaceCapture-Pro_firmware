@@ -34,6 +34,7 @@
 #include "sampleRecord.h"
 #include "sampleRecord_test.h"
 #include "sampleRecord_test.h"
+#include "slip_angle.h"
 #include "task.h"
 #include "task_testing.h"
 
@@ -168,7 +169,7 @@ void SampleRecordTest::testInitSampleRecord()
 {
         LoggerConfig *lc = getWorkingLoggerConfig();
 
-        const size_t expectedEnabledChannels = 25;
+        const size_t expectedEnabledChannels = 26;
         size_t channelCount = get_enabled_channel_count(lc);
         CPPUNIT_ASSERT_EQUAL(expectedEnabledChannels, channelCount);
 
@@ -402,6 +403,17 @@ void SampleRecordTest::testInitSampleRecord()
                                      (void *) ts->get_int_sample);
                 ts++;
         }
+
+        struct meta_config *mcs = &lc->meta_configs;
+        if (mcs->slip_angle.sampleRate != SAMPLE_DISABLED){
+                CPPUNIT_ASSERT_EQUAL((void *) &mcs->slip_angle,
+                                     (void *) ts->cfg);
+                CPPUNIT_ASSERT_EQUAL(SampleData_Float_Noarg, ts->sampleData);
+                CPPUNIT_ASSERT_EQUAL((void *) get_slip_angle,
+                                     (void *) ts->get_int_sample);
+                ts++;
+        }
+
 
         //amount shoud match
         const size_t size = ts - s.channel_samples;

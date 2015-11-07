@@ -39,6 +39,7 @@
 #include "predictive_timer_2.h"
 #include "printk.h"
 #include "sampleRecord.h"
+#include "slip_angle.h"
 #include "taskUtil.h"
 #include "timer.h"
 #include "virtual_channel.h"
@@ -337,6 +338,11 @@ void init_channel_sample_buffer(LoggerConfig *loggerConfig, struct sample *buff)
     chanCfg = &(trackConfig->current_lap_cfg);
     sample = processChannelSampleWithIntGetterNoarg(sample, chanCfg,
              lapstats_current_lap);
+
+    struct meta_config *mcs = &(loggerConfig->meta_configs);
+    chanCfg = &(mcs->slip_angle);
+    sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg,
+                                                      get_slip_angle);
 }
 
 static void populate_channel_sample(ChannelSample *sample)

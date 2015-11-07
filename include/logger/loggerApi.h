@@ -62,6 +62,8 @@
 {"runScript", api_runScript}, \
 {"addTrackDb", api_addTrackDb}, \
 {"getTrackDb", api_getTrackDb}, \
+{"getMetaCfg", api_get_meta_config}, \
+{"setMetaCfg", api_set_meta_config}, \
 {"sysReset", api_systemReset}, \
 {"facReset", api_factoryReset}
 
@@ -107,6 +109,8 @@ int api_setCanConfig(Serial *serial, const jsmntok_t *json);
 int api_getScript(Serial *serial, const jsmntok_t *json);
 int api_setScript(Serial *serial, const jsmntok_t *json);
 int api_runScript(Serial *serial, const jsmntok_t *json);
+int api_get_meta_config(Serial *serial, const jsmntok_t *json);
+int api_set_meta_config(Serial *serial, const jsmntok_t *json);
 
 //messages
 void api_sendLogStart(Serial *serial);

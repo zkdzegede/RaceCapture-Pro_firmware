@@ -110,7 +110,7 @@ void slip_angle_gps_update(const GpsSnapshot *gps_ss)
         last_heading_gps = heading_gps;
 }
 
-float get_slip_angle(void)
+float get_slip_angle()
 {
         if (last_heading_gps && body_heading)
                 return wrap_degrees_delta(body_heading - last_heading_gps);

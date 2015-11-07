@@ -472,6 +472,13 @@ typedef struct _ConnectivityConfig {
 #define SD_LOGGING_MODE_DISABLED					0
 #define SD_LOGGING_MODE_CSV							1
 
+#define DEFAULT_SLIP_ANGLE_CONFIG \
+        {"SlipAngle", "deg/s", -180, 180, DEFAULT_GPS_SAMPLE_RATE, 1, 0}
+
+struct meta_config {
+        ChannelConfig slip_angle;
+};
+
 
 typedef struct _LoggerConfig {
     VersionInfo RcpVersionInfo;
@@ -513,6 +520,9 @@ typedef struct _LoggerConfig {
 
     //Connectivity Configuration
     ConnectivityConfig ConnectivityConfigs;
+
+        /* Meta (derived) channels */
+        struct meta_config meta_configs;
 
     //Padding data to accommodate flash routine
     char padding_data[FLASH_PAGE_SIZE];

@@ -1663,3 +1663,44 @@ int api_runScript(Serial *serial, const jsmntok_t *json)
         initialize_lua();
         return API_SUCCESS;
 }
+
+int api_get_meta_config(Serial *serial, const jsmntok_t *json)
+{
+        LoggerConfig * const lc = getWorkingLoggerConfig();
+        struct meta_config *mcs = &(lc->meta_configs);
+
+        json_objStart(serial);
+        json_objStartString(serial, "meta_cfg");
+        json_objStartString(serial, "slip_angle");
+
+        json_int(serial, "sr", mcs->slip_angle.sampleRate, 0);
+
+        json_objEnd(serial, 0);
+        json_objEnd(serial, 0);
+        json_objEnd(serial, 0);
+
+        return API_SUCCESS_NO_RETURN;
+}
+
+static void sample_rate_test_set(const jsmntok_t *json, ChannelConfig *cfg,
+                                 const char *str)
+{
+        int tmp = 0;
+        setIntValueIfExists(json, str, &tmp);
+        cfg->sampleRate = encodeSampleRate(tmp);
+}
+
+int api_set_meta_config(Serial *serial, const jsmntok_t *json)
+{
+        LoggerConfig *lc = getWorkingLoggerConfig();
+        struct meta_config *mcs = &(lc->meta_configs);
+
+        const jsmntok_t *jstk = findNode(json, "slip_angle");
+        if (jstk)
+                sample_rate_test_set(jstk + 2, &(mcs->slip_angle), "sr");
+        else
+                return API_ERROR_PARAMETER;
+
+        configChanged();
+        return API_SUCCESS;
+}

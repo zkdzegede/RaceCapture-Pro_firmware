@@ -190,8 +190,17 @@ SRC =		mock_uart.c \
 		$(RCP_SRC)/logger/logger.c \
 
 
+#
+# NOTE
+# Now that we are directly compiling some of the C source into the CPP files
+# for unit testing purposes, we need to include the unit test classes in other
+# outside setups like the sim.  This is so that they don't miss needed symbols.
+# Don't worry, it should not contaminate anything, its just not as clean as we
+# would like.
+#
+
 OBJ_TEST = $(addprefix build/, $(addsuffix .o, $(subst $(RCP_BASE)/, rcp_base/, $(basename $(SRC) $(T_SRC) RCPTest.cpp))))
-OBJ_SIM = $(addprefix build/, $(addsuffix .o, $(subst $(RCP_BASE)/, rcp_base/, $(basename $(SRC) RCPSim.cpp))))
+OBJ_SIM = $(addprefix build/, $(addsuffix .o, $(subst $(RCP_BASE)/, rcp_base/, $(basename $(SRC) $(T_SRC) RCPSim.cpp))))
 
 all: test sim
 
@@ -199,7 +208,7 @@ test: $(OBJ_TEST)
 	$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ_TEST) -lm -lcppunit
 
 sim: $(OBJ_SIM)
-	$(CXX) $(CXXFLAGS) -o $(SIMNAME) $(OBJ_SIM) -lm
+	$(CXX) $(CXXFLAGS) -o $(SIMNAME) $(OBJ_SIM) -lm -lcppunit
 
 clean:
 	rm -f $(OBJ_TEST) $(OBJ_SIM) $(NAME) $(SIMNAME)

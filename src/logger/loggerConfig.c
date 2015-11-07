@@ -193,6 +193,11 @@ static void resetConnectivityConfig(ConnectivityConfig *cfg)
     resetTelemetryConfig(&cfg->telemetryConfig);
 }
 
+static void reset_meta_configs(struct meta_config *mc)
+{
+        mc->slip_angle = (ChannelConfig) DEFAULT_SLIP_ANGLE_CONFIG;
+}
+
 bool isHigherSampleRate(const int contender, const int champ)
 {
     // Contender can't win here.  Ever.
@@ -229,6 +234,7 @@ int flash_default_logger_config(void)
     resetLapConfig(&lc->LapConfigs);
     resetTrackConfig(&lc->TrackConfigs);
     resetConnectivityConfig(&lc->ConnectivityConfigs);
+    reset_meta_configs(&lc->meta_configs);
     strcpy(lc->padding_data, "");
 
     int result = flashLoggerConfig();
@@ -561,7 +567,7 @@ unsigned int getHighestSampleRate(LoggerConfig *config)
         s = getHigherSampleRate(sr, s);
     }
 
-
+    /* XXX: replace me with loggerApi.c:getGpsConfigHighSampleRate */
     GPSConfig *gpsConfig = &(config->GPSConfigs);
     sr = gpsConfig->latitude.sampleRate;
     s = getHigherSampleRate(sr, s);
@@ -611,6 +617,12 @@ unsigned int getHighestSampleRate(LoggerConfig *config)
 
     sr = trackCfg->current_lap_cfg.sampleRate;
     s = getHigherSampleRate(sr, s);
+
+
+    struct meta_config *mcs = &(config->meta_configs);
+    sr = mcs->slip_angle.sampleRate;
+    s = getHigherSampleRate(sr, s);
+
 
     return s;
 }
@@ -669,6 +681,10 @@ size_t get_enabled_channel_count(LoggerConfig *loggerConfig)
     if (lapConfig->predTimeCfg.sampleRate != SAMPLE_DISABLED) channels++;
     if (lapConfig->elapsed_time_cfg.sampleRate != SAMPLE_DISABLED) channels++;
     if (lapConfig->current_lap_cfg.sampleRate != SAMPLE_DISABLED) channels++;
+
+    struct meta_config *mcs = &loggerConfig->meta_configs;
+    if (mcs->slip_angle.sampleRate != SAMPLE_DISABLED)
+            ++channels;
 
     channels += get_virtual_channel_count();
     return channels;
