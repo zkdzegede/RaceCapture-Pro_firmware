@@ -24,6 +24,7 @@
 #include "array_utils.h"
 #include "capabilities.h"
 #include "cellular.h"
+#include "cell_pwr_btn.h"
 #include "constants.h"
 #include "cpu.h"
 #include "dateTime.h"
@@ -49,13 +50,6 @@ static struct {
 } telemetry_info;
 
 static struct cellular_info cell_info;
-
-enum cellular_modem {
-        CELLULAR_MODEM_UNKNOWN = 0,
-        CELLULAR_MODEM_SIM900,
-        CELLULAR_MODEM_UBLOX_SARA,
-};
-
 static const enum log_level serial_dbg_lvl = INFO;
 
 #if 0
@@ -242,11 +236,10 @@ bool autobaud_modem(struct serial_buffer *sb, size_t tries,
                         return true;
                 }
 
-                pr_info("[cell] Unexpected reply. Backing off...\r\n");
+                pr_debug("[cell] Unexpected reply. Backing off...\r\n");
                 delayMs(backoff_ms);
         }
 
-        pr_warning("[cell] Failed to auto-baud device\r\n");
         return false;
 }
 
@@ -306,6 +299,10 @@ int cellular_disconnect(DeviceConfig *config)
  */
 static int cellular_init_modem(struct serial_buffer *sb)
 {
+        /* XXX: SIM900 HACK */
+        cell_pwr_btn_init(CELLULAR_MODEM_SIM900);
+        cell_pwr_btn(false);
+
         /* First pause for 3 seconds to ensure device is ready */
         pr_info("[cell] Waiting 3 seconds for device to be ready\r\n");
         delayMs(3000);

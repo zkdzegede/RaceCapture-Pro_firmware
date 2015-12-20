@@ -21,11 +21,11 @@
 
 #include "array_utils.h"
 #include "cellular.h"
+#include "cell_pwr_btn.h"
 #include "gsm.h"
 #include "printk.h"
 #include "serial_buffer.h"
 #include "sara_u280.h"
-#include "sim900_device.h"
 #include "taskUtil.h"
 
 #include <string.h>
@@ -97,10 +97,11 @@ bool sara_u280_get_ip_address(struct serial_buffer *sb)
 
 void sara_u280_power_cycle(bool force_hard)
 {
-        sim900_device_power_button(1);
-        delayMs(2000);
-        sim900_device_power_button(0);
-        delayMs(3000);
+        cell_pwr_btn_init(CELLULAR_MODEM_UBLOX_SARA);
+        cell_pwr_btn(true);
+        delayMs(1000);
+        cell_pwr_btn(false);
+        delayMs(1000);
 }
 
 bool sara_u280_put_pdp_config(struct serial_buffer *sb, const int pdp_id,

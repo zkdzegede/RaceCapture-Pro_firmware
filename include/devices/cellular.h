@@ -44,6 +44,12 @@ typedef enum {
     TELEMETRY_STATUS_CELL_REGISTRATION_FAILED
 } telemetry_status_t;
 
+enum cellular_modem {
+        CELLULAR_MODEM_UNKNOWN = 0,
+        CELLULAR_MODEM_SIM900,
+        CELLULAR_MODEM_UBLOX_SARA,
+};
+
 enum cellmodem_status {
     CELLMODEM_STATUS_NOT_INIT = 0,
     CELLMODEM_STATUS_PROVISIONED,
