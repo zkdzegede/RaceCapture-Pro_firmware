@@ -27,6 +27,8 @@
 
 #include <stdbool.h>
 
+bool sim900_init_settings(struct serial_buffer *sb);
+
 bool sim900_get_subscriber_number(struct serial_buffer *sb,
                                   struct cellular_info *ci);
 
@@ -71,5 +73,7 @@ bool sim900_start_direct_mode(struct serial_buffer *sb,
                               const int socket_id);
 
 bool sim900_stop_direct_mode(struct serial_buffer *sb);
+
+void sim900_power_cycle(const bool force_hard);
 
 #endif /* _SIM900_H_ */

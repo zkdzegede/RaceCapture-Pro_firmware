@@ -21,6 +21,7 @@
 
 #include "array_utils.h"
 #include "cellular.h"
+#include "cell_pwr_btn.h"
 #include "gsm.h"
 #include "printk.h"
 #include "serial_buffer.h"
@@ -29,6 +30,55 @@
 
 #include <stdbool.h>
 #include <string.h>
+
+static bool sim900_set_multiple_connections(struct serial_buffer *sb,
+                                            const bool enable)
+{
+        const char *msgs[1];
+        const size_t msgs_len = ARRAY_LEN(msgs);
+
+        serial_buffer_reset(sb);
+        serial_buffer_printf_append(sb, "AT+CIPMUX=%d", enable ? 1 : 0);
+        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
+                                               msgs_len);
+        return is_rsp_ok(msgs, count);
+}
+
+static bool sim900_set_transparent_mode(struct serial_buffer *sb,
+                                        const bool enable)
+{
+        const char *msgs[1];
+        const size_t msgs_len = ARRAY_LEN(msgs);
+
+        serial_buffer_reset(sb);
+        serial_buffer_printf_append(sb, "AT+CIPMODE=%d", enable ? 1 : 0);
+        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
+                                               msgs_len);
+        return is_rsp_ok(msgs, count);
+}
+
+static bool sim900_set_flow_control(struct serial_buffer *sb,
+                                    const int dce_by_dte,
+                                    const int dte_by_dce)
+{
+        const char *msgs[1];
+        const size_t msgs_len = ARRAY_LEN(msgs);
+
+        serial_buffer_reset(sb);
+        serial_buffer_printf_append(sb, "AT+IFC=%d,%d", dce_by_dte,
+                                    dte_by_dce);
+        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
+                                               msgs_len);
+        return is_rsp_ok(msgs, count);
+}
+
+
+bool sim900_init_settings(struct serial_buffer *sb)
+{
+        return sim900_set_flow_control(sb, 0, 0) &&
+                sim900_set_multiple_connections(sb, false) &&
+                sim900_set_transparent_mode(sb, true);
+}
 
 bool sim900_get_subscriber_number(struct serial_buffer *sb,
                                   struct cellular_info *ci)
@@ -51,7 +101,7 @@ bool sim900_get_imei(struct serial_buffer *sb,
 enum cellular_net_status sim900_get_net_reg_status(struct serial_buffer *sb,
                                                    struct cellular_info *ci)
 {
-        return gsm_get_network_reg_info(sb, ci);
+        return gsm_get_network_reg_status(sb, ci);
 }
 
 bool sim900_is_gprs_attached(struct serial_buffer *sb)
@@ -73,9 +123,10 @@ bool sim900_get_ip_address(struct serial_buffer *sb)
         serial_buffer_reset(sb);
         serial_buffer_append(sb, "AT+CIFSR");
 
-        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs, msgs_len);
+        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
+                                               msgs_len);
         const bool status = is_rsp(msgs, count, "ERROR");
-        if (!status) {
+        if (status) {
                 pr_warning("[sim900] Failed to read IP\r\n");
                 return false;
         }
@@ -115,13 +166,22 @@ bool sim900_put_dns_config(struct serial_buffer *sb, const char* dns1,
 
 bool sim900_activate_pdp(struct serial_buffer *sb, const int pdp_id)
 {
-        const char *msgs[1];
+        const char *msgs[2];
         const size_t msgs_len = ARRAY_LEN(msgs);
 
         serial_buffer_reset(sb);
         serial_buffer_append(sb, "AT+CIICR");
-        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs, msgs_len);
-        return is_rsp_ok(msgs, count);
+        const size_t count = cellular_exec_cmd(sb, MEDIUM_TIMEOUT, msgs, msgs_len);
+        const bool status = is_rsp_ok(msgs, count);
+
+        /*
+         * Delay if successful here b/c sim900 throws lots of garbage onto
+         * the serial bus.
+         */
+        if (status)
+                delayMs(1000);
+
+        return status;
 }
 
 bool sim900_deactivate_pdp(struct serial_buffer *sb, const int pdp_id)
@@ -131,28 +191,16 @@ bool sim900_deactivate_pdp(struct serial_buffer *sb, const int pdp_id)
 
         serial_buffer_reset(sb);
         serial_buffer_append(sb, "AT+CIPSHUT");
-        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs, msgs_len);
+        const size_t count = cellular_exec_cmd(sb, MEDIUM_TIMEOUT, msgs,
+                                               msgs_len);
         return is_rsp(msgs, count, "SHUT OK");
 
         return false;
 }
 
-static bool sim900_disable_mux(struct serial_buffer *sb)
-{
-        const char *msgs[1];
-        const size_t msgs_len = ARRAY_LEN(msgs);
-
-        serial_buffer_reset(sb);
-        serial_buffer_append(sb, "AT+CIPMUX=0");
-        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
-                                               msgs_len);
-        return is_rsp_ok(msgs, count);
-}
-
 int sim900_create_tcp_socket(struct serial_buffer *sb)
 {
-        /* Single connection only (for now) */
-        return sim900_disable_mux(sb);
+        return true;
 }
 
 bool sim900_connect_tcp_socket(struct serial_buffer *sb,
@@ -160,7 +208,7 @@ bool sim900_connect_tcp_socket(struct serial_buffer *sb,
                                const char *host,
                                const int port)
 {
-        const char *msgs[1];
+        const char *msgs[3];
         const size_t msgs_len = ARRAY_LEN(msgs);
 
         serial_buffer_reset(sb);
@@ -168,7 +216,10 @@ bool sim900_connect_tcp_socket(struct serial_buffer *sb,
                                     "TCP", host, port);
         const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
                                                msgs_len);
-        return is_rsp_ok(msgs, count);
+        return is_rsp_ok(msgs, 1) && (
+                0 == strcmp("CONNECT OK", msgs[count - 1]) ||
+                0 == strcmp("CONNECT", msgs[count - 1]) ||
+                0 == strcmp("ALREADY CONNECT", msgs[count - 1]));
 }
 
 bool sim900_close_tcp_socket(struct serial_buffer *sb,
@@ -211,4 +262,14 @@ bool sim900_stop_direct_mode(struct serial_buffer *sb)
                         break;
         }
         return tries > 0;
+}
+
+void sim900_power_cycle(const bool force_hard)
+{
+        cell_pwr_btn_init(CELLULAR_MODEM_SIM900);
+        cell_pwr_btn(true);
+        delayMs(2000);
+        cell_pwr_btn(false);
+        /* Delay here because takes time to boot device */
+        delayMs(5000);
 }

@@ -40,7 +40,8 @@
 #include <stdbool.h>
 
 /* The pause time (in ms) for Unexpected Response Codes */
-#define CELLULAR_URC_PAUSE_MS 25
+/* XXX SIM900 SUCKS! */
+#define CELLULAR_URC_PAUSE_MS 250
 #define TELEMETRY_SERVER_PORT "8080"
 
 static struct {
@@ -300,24 +301,21 @@ int cellular_disconnect(DeviceConfig *config)
 static int cellular_init_modem(struct serial_buffer *sb)
 {
         /* XXX: SIM900 HACK */
-        cell_pwr_btn_init(CELLULAR_MODEM_SIM900);
-        cell_pwr_btn(false);
+        sim900_power_cycle(true);
 
         /* First pause for 3 seconds to ensure device is ready */
         pr_info("[cell] Waiting 3 seconds for device to be ready\r\n");
         delayMs(3000);
 
-        if (!autobaud_modem(sb, 30, 1000))
+        if (!autobaud_modem(sb, 10, 500))
                 return DEVICE_INIT_FAIL;
 
         if(!gsm_set_echo(sb, false))
                 return DEVICE_INIT_FAIL;
 
         /* At this point system is configured properly. Use specific cmds */
-        sim900_get_subscriber_number(sb, &cell_info);
         sim900_get_imei(sb, &cell_info);
         sim900_get_signal_strength(sb, &cell_info);
-
         return DEVICE_INIT_SUCCESS;
 }
 
@@ -356,7 +354,9 @@ static bool register_on_network(struct serial_buffer *sb)
         sim900_get_network_reg_info(sb, &cell_info);
         cell_info.status = CELLMODEM_STATUS_PROVISIONED;
 
-        return cell_info.net_status;
+        sim900_get_subscriber_number(sb, &cell_info);
+
+        return true;
 }
 
 static bool setup_gprs(struct serial_buffer *sb,
@@ -379,17 +379,15 @@ static bool setup_gprs(struct serial_buffer *sb,
 
         /* Setup APN */
         const bool status =
-                sim900_put_pdp_config(sb, 0, cc->apnHost,cc->apnUser,
-                                         cc->apnPass) &&
-                sim900_put_dns_config(sb, "8.8.8.8", "8.8.4.4");
-
+                sim900_put_pdp_config(sb, 0, cc->apnHost, cc->apnUser,
+                                      cc->apnPass);
         if (!status) {
                 pr_warning("[cell] APN/DNS config failed\r\n");
                 return false;
         }
 
         bool gprs_active;
-        for (size_t tries = 10; tries; --tries) {
+        for (size_t tries = 3; tries; --tries) {
                 gprs_active = sim900_activate_pdp(sb, 0);
 
                 if (gprs_active)
@@ -402,9 +400,20 @@ static bool setup_gprs(struct serial_buffer *sb,
                 pr_warning("[cell] Failed connect GPRS\r\n");
                 return false;
         }
-
         pr_debug("[cell] GPRS connected\r\n");
-        sim900_get_ip_address(sb);
+
+        /* Wait to get the IP */
+        bool has_ip = false;
+        for (size_t tries = 5; tries && !has_ip; --tries) {
+                has_ip = sim900_get_ip_address(sb);
+                delayMs(1000);
+        }
+        if (!has_ip)
+                return false;
+        pr_debug("[cell] IP acquired\r\n");
+
+        sim900_put_dns_config(sb, "8.8.8.8", "8.8.4.4");
+
         return true;
 }
 
@@ -419,7 +428,8 @@ static bool connect_rcl_telem(struct serial_buffer *sb,
         }
         telemetry_info.socket = socket_id;
 
-        const char *host = tc->telemetryServerHost;
+        /* const char *host = tc->telemetryServerHost; */
+        const char *host = "telemetry.race-capture.com";
         const int port = 8080;
         if (!sim900_connect_tcp_socket(sb, socket_id, host, port)) {
                 pr_warning_str_msg("[cell] Failed to connect to ", host);
@@ -485,14 +495,15 @@ int cellular_init_connection(DeviceConfig *config)
         /* Figure out what Modem we are using */
         probe_cellular_manuf(sb);
 	pr_debug("init cell connection\r\n");
+        sim900_init_settings(sb);
 
         /* First register on the network */
-        if (CELLULAR_NETWORK_REGISTERED != register_on_network(sb)) {
+        if (!register_on_network(sb)) {
                 telemetry_info.status = TELEMETRY_STATUS_CELL_REGISTRATION_FAILED;
                 return DEVICE_INIT_FAIL;
         }
 
-        /* Now setup a GPRS connection */
+        /* Now setup a GPRS + PDP connection */
         if (!setup_gprs(sb, cellCfg)) {
                 telemetry_info.status = TELEMETRY_STATUS_INTERNET_CONFIG_FAILED;
                 return DEVICE_INIT_FAIL;
