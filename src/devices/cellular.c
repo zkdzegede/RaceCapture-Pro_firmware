@@ -321,6 +321,8 @@ static int cellular_init_modem(struct serial_buffer *sb)
 
 static bool register_on_network(struct serial_buffer *sb)
 {
+        sim900_get_subscriber_number(sb, &cell_info);
+
         /* Check our status on the network */
         enum cellular_net_status status;
         for (size_t tries = 30; tries; --tries) {
@@ -353,8 +355,6 @@ static bool register_on_network(struct serial_buffer *sb)
         pr_info("[cell] Network registered\r\n");
         sim900_get_network_reg_info(sb, &cell_info);
         cell_info.status = CELLMODEM_STATUS_PROVISIONED;
-
-        sim900_get_subscriber_number(sb, &cell_info);
 
         return true;
 }
