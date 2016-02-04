@@ -1,9 +1,9 @@
 /*
- * Race Capture Pro Firmware
+ * Race Capture Firmware
  *
- * Copyright (C) 2015 Autosport Labs
+ * Copyright (C) 2016 Autosport Labs
  *
- * This file is part of the Race Capture Pro fimrware suite
+ * This file is part of the Race Capture firmware suite
  *
  * This is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -19,26 +19,8 @@
  * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _CELLULAR_PWR_BTN_H_
-#define _CELLULAR_PWR_BTN_H_
-
 #include "cellular.h"
-#include "cpp_guard.h"
 
-#include <stdbool.h>
+void cell_pwr_btn_init(const enum cellular_modem cm) {}
 
-CPP_GUARD_BEGIN
-
-/**
- * Controlls the cellular power button for the hardware
- * @param cm The cellular modem in use.
- * @param pressed Whether or not the button is pressed.
- */
-
-void cell_pwr_btn_init(const enum cellular_modem cm);
-
-void cell_pwr_btn(const bool pressed);
-
-CPP_GUARD_END
-
-#endif /* _CELLULAR_PWR_BTN_H_ */
+void cell_pwr_btn(const bool pressed) {}

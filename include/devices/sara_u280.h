@@ -23,9 +23,12 @@
 #define _SARA_U280_H_
 
 #include "cellular.h"
+#include "cpp_guard.h"
 #include "serial_buffer.h"
 
 #include <stdbool.h>
+
+CPP_GUARD_BEGIN
 
 bool sara_u280_get_subscriber_number(struct serial_buffer *sb,
                                      struct cellular_info *ci);
@@ -73,5 +76,7 @@ bool sara_u280_start_direct_mode(struct serial_buffer *sb,
                                  const int socket_id);
 
 bool sara_u280_stop_direct_mode(struct serial_buffer *sb);
+
+CPP_GUARD_END
 
 #endif /* _SARA_U280_H_ */

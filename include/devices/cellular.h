@@ -22,9 +22,12 @@
 #ifndef _CELLULAR_H_
 #define _CELLULAR_H_
 
+#include "cpp_guard.h"
 #include "devices_common.h"
 #include "serial_buffer.h"
 #include "stddef.h"
+
+CPP_GUARD_BEGIN
 
 #define PAUSE_DELAY 100
 #define READ_TIMEOUT 	500
@@ -79,7 +82,7 @@ struct cellular_info {
         int signal;
         char number[CELLULAR_INFO_NUMBER_MAX_LENGTH];
         char imei[CELLULAR_INFO_IMEI_MAX_LENGTH];
-        char operator[CELLULAR_INFO_OPERATOR_MAX_LEN];
+        char op[CELLULAR_INFO_OPERATOR_MAX_LEN];
 };
 
 int cell_get_signal_strength();
@@ -111,5 +114,7 @@ int cellular_init_connection(DeviceConfig *config);
 int cellular_check_connection_status(DeviceConfig *config);
 const char* readsCell(struct serial_buffer *sb, size_t timeout);
 void putsCell(struct serial_buffer *sb, const char *data);
+
+CPP_GUARD_END
 
 #endif /* _CELLULAR_H_ */

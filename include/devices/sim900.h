@@ -23,9 +23,12 @@
 #define _SIM900_H_
 
 #include "cellular.h"
+#include "cpp_guard.h"
 #include "serial_buffer.h"
 
 #include <stdbool.h>
+
+CPP_GUARD_BEGIN
 
 bool sim900_init_settings(struct serial_buffer *sb);
 
@@ -75,5 +78,7 @@ bool sim900_start_direct_mode(struct serial_buffer *sb,
 bool sim900_stop_direct_mode(struct serial_buffer *sb);
 
 void sim900_power_cycle(const bool force_hard);
+
+CPP_GUARD_END
 
 #endif /* _SIM900_H_ */

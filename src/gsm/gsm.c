@@ -232,6 +232,6 @@ bool gsm_get_network_reg_info(struct serial_buffer *sb,
                 str_beg = "UNKNOWN";
         }
 
-        strncpy(ci->operator, str_beg, sizeof(ci->operator));
+        strncpy(ci->op, str_beg, sizeof(ci->op));
         return status;
 }
