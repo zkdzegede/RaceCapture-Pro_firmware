@@ -44,13 +44,10 @@
 #define CELLULAR_URC_PAUSE_MS 250
 #define TELEMETRY_SERVER_PORT "8080"
 
-static struct {
-        telemetry_status_t status;
-        tiny_millis_t active_since;
-        int socket;
-} telemetry_info;
+const struct cell_modem_methods* methods;
 
 static struct cellular_info cell_info;
+static struct telemetry_info telemetry_info;
 static const enum log_level serial_dbg_lvl = INFO;
 
 #if 0
@@ -220,6 +217,21 @@ const char* cell_get_IMEI()
         return (const char*) cell_info.imei;
 }
 
+static bool get_methods(const enum cellular_modem modem,
+                        const struct cell_modem_methods **methods)
+{
+        switch(modem) {
+        case CELLULAR_MODEM_SIM900:
+                *methods = get_sim900_methods();
+                break;
+        default:
+                *methods = NULL;
+        }
+
+        return NULL != *methods;
+}
+
+
 /**
  * Does auto-bauding.  This allows the chip to figure out what serial
  * settings to use (default 8N1) along with what baud rate to use.  This
@@ -278,20 +290,12 @@ int cellular_disconnect(DeviceConfig *config)
         /* Sane because DeviceConfig is typedef from struct serial_buffer* */
         struct serial_buffer *sb = (struct serial_buffer*) config;
 
-        if (!sim900_stop_direct_mode(sb)) {
-                /* Then we don't know if can issue commands */
-                pr_warning("[cell] Failed to escape Direct Mode\r\n");
-                return -1;
-        }
+        if (methods)
+                methods->close_telem_connection(sb, &cell_info,
+                                                &telemetry_info);
 
-        const int sid = telemetry_info.socket;
-        if (!sim900_close_tcp_socket(sb, sid)) {
-                pr_warning_int_msg("[cell] Failed to close socket ", sid);
-                return -2;
-        }
-
-        telemetry_info.socket = -1;
         telemetry_info.status = TELEMETRY_STATUS_IDLE;
+        telemetry_info.active_since = 0;
         return 0;
 }
 
@@ -300,7 +304,7 @@ int cellular_disconnect(DeviceConfig *config)
  */
 static int cellular_init_modem(struct serial_buffer *sb)
 {
-        /* XXX: SIM900 HACK */
+        /* XXX: SIM900 HACK.  Replace with generic method? */
         sim900_power_cycle(true);
 
         /* First pause for 3 seconds to ensure device is ready */
@@ -313,52 +317,38 @@ static int cellular_init_modem(struct serial_buffer *sb)
         if(!gsm_set_echo(sb, false))
                 return DEVICE_INIT_FAIL;
 
-        /* At this point system is configured properly. Use specific cmds */
-        sim900_get_imei(sb, &cell_info);
-        sim900_get_signal_strength(sb, &cell_info);
         return DEVICE_INIT_SUCCESS;
 }
 
-static bool register_on_network(struct serial_buffer *sb)
+#if 0
+static int get_sim_info(struct serial_buffer *sb)
 {
+        /* At this point system is configured properly. Use specific cmds */
+        sim900_get_imei(sb, &cell_info);
+        sim900_get_signal_strength(sb, &cell_info);
         sim900_get_subscriber_number(sb, &cell_info);
+        return DEVICE_INIT_SUCCESS;
+}
+#endif
 
-        /* Check our status on the network */
-        enum cellular_net_status status;
-        for (size_t tries = 30; tries; --tries) {
-                 status = sim900_get_net_reg_status(sb, &cell_info);
-                if (CELLULAR_NETWORK_REGISTERED == status)
-                        break;
-
-                /* Wait before trying again */
-                delayMs(3000);
+static void print_registration_failure()
+{
+        pr_info("[cell] Network registration failed: ");
+        switch(cell_info.net_status) {
+        case CELLULAR_NETWORK_SEARCHING:
+                pr_info("Network not found");
+                break;
+        case CELLULAR_NETWORK_DENIED:
+                pr_info("Access denied.  Call provider.");
+                break;
+        default:
+                pr_info("Unknown reason.  Notify autosportlabs.");
+                break;
         }
-
-        if (status != CELLULAR_NETWORK_REGISTERED) {
-                /* If here, we failed :( */
-                pr_info("[cell] Network registration failed: ");
-                switch(status) {
-                case CELLULAR_NETWORK_SEARCHING:
-                        pr_info("Network not found");
-                        break;
-                case CELLULAR_NETWORK_DENIED:
-                        pr_info("Access denied.  Call provider.");
-                        break;
-                default:
-                        break;
-                }
-                pr_info("\r\n");
-                cell_info.status = CELLMODEM_STATUS_NO_NETWORK;
-                return false;
-        }
-
-        pr_info("[cell] Network registered\r\n");
-        sim900_get_network_reg_info(sb, &cell_info);
-        cell_info.status = CELLMODEM_STATUS_PROVISIONED;
-
-        return true;
+        pr_info("\r\n");
 }
 
+#if 0
 static bool setup_gprs(struct serial_buffer *sb,
                        CellularConfig *cc)
 {
@@ -412,7 +402,7 @@ static bool setup_gprs(struct serial_buffer *sb,
                 return false;
         pr_debug("[cell] IP acquired\r\n");
 
-        sim900_put_dns_config(sb, "8.8.8.8", "8.8.4.4");
+        sim900_put_dns_config(sb, cc->dns1, cc->dns2);
 
         return true;
 }
@@ -438,6 +428,7 @@ static bool connect_rcl_telem(struct serial_buffer *sb,
 
         return sim900_start_direct_mode(sb, socket_id);
 }
+#endif
 
 static bool auth_telem_stream(struct serial_buffer *sb,
                               const TelemetryConfig *tc)
@@ -492,33 +483,58 @@ int cellular_init_connection(DeviceConfig *config)
         if (DEVICE_INIT_SUCCESS != init_status)
                 return DEVICE_INIT_FAIL;
 
-        /* Figure out what Modem we are using */
-        probe_cellular_manuf(sb);
-	pr_debug("init cell connection\r\n");
-        sim900_init_settings(sb);
-
-        /* First register on the network */
-        if (!register_on_network(sb)) {
-                telemetry_info.status = TELEMETRY_STATUS_CELL_REGISTRATION_FAILED;
+        /* If here, there is a modem attached.  Figure out what modem it is */
+        enum cellular_modem modem_type = probe_cellular_manuf(sb);
+        if (!get_methods(modem_type, &methods)) {
+                pr_error_int_msg("Unable to load methods for modem_type ",
+                                 modem_type);
                 return DEVICE_INIT_FAIL;
         }
 
+        pr_debug("[cell]: Modem loaded.  Initializing... \r\n");
+        if (!methods->init_modem(sb, &cell_info)) {
+                telemetry_info.status = TELEMETRY_STATUS_MODEM_INIT_FAILED;
+                return DEVICE_INIT_FAIL;
+        }
+
+        /* Read SIM data.  Don't care if these fail */
+        methods->get_sim_info(sb, &cell_info);
+
+        /* Now register on the network */
+        if (!methods->register_on_network(sb, &cell_info)) {
+                telemetry_info.status =
+                        TELEMETRY_STATUS_CELL_REGISTRATION_FAILED;
+                /* XXX STIEG: Get rid of cell_info.status */
+                cell_info.status = CELLMODEM_STATUS_NO_NETWORK;
+                return DEVICE_INIT_FAIL;
+        }
+
+        /* Read in Network data.  Don't care if this fails */
+        pr_info("[cell] Network registered\r\n");
+        methods->get_network_info(sb, &cell_info);
+        cell_info.status = CELLMODEM_STATUS_PROVISIONED;
+
         /* Now setup a GPRS + PDP connection */
-        if (!setup_gprs(sb, cellCfg)) {
-                telemetry_info.status = TELEMETRY_STATUS_INTERNET_CONFIG_FAILED;
+        if (!methods->setup_pdp(sb, &cell_info, cellCfg)) {
+                telemetry_info.status =
+                        TELEMETRY_STATUS_INTERNET_CONFIG_FAILED;
                 return DEVICE_INIT_FAIL;
         }
 
         /* Connect to RCL */
-        if(!connect_rcl_telem(sb, telemetryConfig)) {
-                telemetry_info.status = TELEMETRY_STATUS_SERVER_CONNECTION_FAILED;
+        if(!methods->open_telem_connection(sb, &cell_info, &telemetry_info,
+                                           telemetryConfig)) {
+                telemetry_info.status =
+                        TELEMETRY_STATUS_SERVER_CONNECTION_FAILED;
+                print_registration_failure();
                 return DEVICE_INIT_FAIL;
         }
 
         /* Auth against RCL */
         if (0 != auth_telem_stream(sb, telemetryConfig)){
                 telemetry_info.status = TELEMETRY_STATUS_REJECTED_DEVICE_ID;
-                pr_error_str_msg("err: auth- token: ", telemetryConfig->telemetryDeviceId);
+                pr_error_str_msg("[cell] error... auth-token: ",
+                                 telemetryConfig->telemetryDeviceId);
                 return DEVICE_INIT_FAIL;
         }
 

@@ -23,7 +23,9 @@
 #define _CELLULAR_H_
 
 #include "cpp_guard.h"
+#include "dateTime.h"
 #include "devices_common.h"
+#include "loggerConfig.h"
 #include "serial_buffer.h"
 #include "stddef.h"
 
@@ -44,7 +46,8 @@ typedef enum {
     TELEMETRY_STATUS_DATA_PLAN_NOT_AVAILABLE,
     TELEMETRY_STATUS_SERVER_CONNECTION_FAILED,
     TELEMETRY_STATUS_INTERNET_CONFIG_FAILED,
-    TELEMETRY_STATUS_CELL_REGISTRATION_FAILED
+    TELEMETRY_STATUS_CELL_REGISTRATION_FAILED,
+    TELEMETRY_STATUS_MODEM_INIT_FAILED,
 } telemetry_status_t;
 
 enum cellular_modem {
@@ -56,11 +59,12 @@ enum cellular_modem {
 enum cellmodem_status {
     CELLMODEM_STATUS_NOT_INIT = 0,
     CELLMODEM_STATUS_PROVISIONED,
-    CELLMODEM_STATUS_NO_NETWORK
+    CELLMODEM_STATUS_NO_NETWORK,
 };
 
 enum cellular_net_status {
-        CELLULAR_NETWORK_NOT_REGISTERED = 0,
+        CELLULAR_NETWORK_STATUS_UNKNOWN = 0,
+        CELLULAR_NETWORK_NOT_SEARCHING,
         CELLULAR_NETWORK_SEARCHING,
         CELLULAR_NETWORK_DENIED,
         CELLULAR_NETWORK_REGISTERED,
@@ -83,6 +87,34 @@ struct cellular_info {
         char number[CELLULAR_INFO_NUMBER_MAX_LENGTH];
         char imei[CELLULAR_INFO_IMEI_MAX_LENGTH];
         char op[CELLULAR_INFO_OPERATOR_MAX_LEN];
+};
+
+struct telemetry_info {
+        telemetry_status_t status;
+        tiny_millis_t active_since;
+        int socket;
+};
+
+
+struct cell_modem_methods {
+        bool (*init_modem)(struct serial_buffer *sb,
+                           struct cellular_info *ci);
+        bool (*get_sim_info)(struct serial_buffer *sb,
+                             struct cellular_info *ci);
+        bool (*register_on_network)(struct serial_buffer *sb,
+                             struct cellular_info *ci);
+        bool (*get_network_info)(struct serial_buffer *sb,
+                             struct cellular_info *ci);
+        bool (*setup_pdp)(struct serial_buffer *sb,
+                          struct cellular_info *ci,
+                          const CellularConfig *cc);
+        bool (*open_telem_connection)(struct serial_buffer *sb,
+                                      struct cellular_info *ci,
+                                      struct telemetry_info *ti,
+                                      const TelemetryConfig *tc);
+        bool (*close_telem_connection)(struct serial_buffer *sb,
+                                       struct cellular_info *ci,
+                                       struct telemetry_info *ti);
 };
 
 int cell_get_signal_strength();

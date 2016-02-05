@@ -48,6 +48,7 @@ void cell_pwr_btn_init(const enum cellular_modem cm)
         gpio_conf.GPIO_Mode = GPIO_Mode_OUT;
         gpio_conf.GPIO_Pin = EXT_POWER_CONTROL_PIN;
 
+        /*
         switch (cm) {
         case CELLULAR_MODEM_SIM900:
                 gpio_conf.GPIO_OType = GPIO_OType_PP;
@@ -60,6 +61,9 @@ void cell_pwr_btn_init(const enum cellular_modem cm)
         default:
                 break;
         }
+        */
+        gpio_conf.GPIO_OType = GPIO_OType_OD;
+        gpio_conf.GPIO_PuPd = GPIO_PuPd_UP;
 
         GPIO_Init(EXT_POWER_CONTROL_PORT, &gpio_conf);
         cm_cfgd = cm;
