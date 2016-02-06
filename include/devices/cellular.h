@@ -31,6 +31,7 @@
 
 CPP_GUARD_BEGIN
 
+/* XXX Move these to respective cell files */
 #define PAUSE_DELAY 100
 #define READ_TIMEOUT 	500
 #define SHORT_TIMEOUT 	4500

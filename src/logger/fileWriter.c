@@ -60,13 +60,13 @@ static FRESULT flush_file_buffer(void)
         FRESULT res = FR_OK;
         char tmp[32];
 
-        pr_trace(_RCP_BASE_FILE_ "Flushing file buffer\r\n");
+        /* pr_trace(_RCP_BASE_FILE_ "Flushing file buffer\r\n"); */
         size_t chars = get_used(&file_buff);
         while(0 < chars) {
                 if (chars > sizeof(tmp))
                         chars = sizeof(tmp);
 
-                pr_trace_int_msg(_RCP_BASE_FILE_ "Chars is ", chars);
+                /* pr_trace_int_msg(_RCP_BASE_FILE_ "Chars is ", chars); */
                 get_data(&file_buff, &tmp, chars);
                 if (g_logfile->fs) {
                         unsigned int bw;
@@ -77,7 +77,7 @@ static FRESULT flush_file_buffer(void)
                 chars = get_used(&file_buff);
         }
 
-        pr_trace(_RCP_BASE_FILE_ "Flushing file buffer DONE\r\n");
+        /* pr_trace(_RCP_BASE_FILE_ "Flushing file buffer DONE\r\n"); */
         return res;
 }
 

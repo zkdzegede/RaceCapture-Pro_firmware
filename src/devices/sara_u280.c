@@ -85,7 +85,7 @@ static bool sara_u280_get_ip_address(struct serial_buffer *sb)
         /* +UPSND: 0,0,"93.68.225.175" */
         const char* ipaddr = msgs[0];
         for (size_t i = 2; i && ipaddr; --i)
-                ipaddr = strchr(ipaddr, ',');
+                ipaddr = strchr(ipaddr, ',') + 1;
 
         if (ipaddr) {
                 pr_info_str_msg("[cell] IP address: ", ipaddr);
@@ -96,6 +96,34 @@ static bool sara_u280_get_ip_address(struct serial_buffer *sb)
 
         return ipaddr != NULL;
 }
+
+static bool sara_u280_is_gprs_connected(struct serial_buffer *sb)
+{
+        const char *cmd = "AT+UPSND=0,8";
+        const char *msgs[2];
+        const size_t msgs_len = ARRAY_LEN(msgs);
+
+        serial_buffer_reset(sb);
+        serial_buffer_append(sb, cmd);
+        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
+                                               msgs_len);
+        const bool status = is_rsp_ok(msgs, count);
+        if (!status) {
+                pr_warning("[cell] Failed to get GPRS connection status\r\n");
+                return false;
+        }
+
+        /* +UPSND: 0,8,<0|1> */
+        const char* str = msgs[0];
+        for (size_t i = 2; i && str; --i)
+                str = strchr(str, ',') + 1;
+
+        const bool connected = *str == '1';
+        pr_info_str_msg("[sara_u280] Connected to GPRS: ",
+                        connected ? "True" : "False");
+        return connected;
+}
+
 
 static bool sara_u280_put_pdp_config(struct serial_buffer *sb,
                                      const int pdp_id,
@@ -114,7 +142,7 @@ static bool sara_u280_put_pdp_config(struct serial_buffer *sb,
         serial_buffer_printf_append(sb, ";+UPSD=0,3,\"%s\"", password);
 
         /* Dynamic IP */
-        serial_buffer_append(sb, ";+UPSD=0,7,\"0.0.0.0\"");
+        //serial_buffer_append(sb, ";+UPSD=0,7,\"0.0.0.0\"");
 
 
         const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
@@ -248,18 +276,28 @@ static bool sara_u280_stop_direct_mode(struct serial_buffer *sb)
         /* Must delay min 2000ms before stopping direct mode */
 	delayMs(2100);
 
+        /*
+         * Using straight serial buffer logic here instead of
+         * the AT command system because we can get data intended for
+         * the JSON parser while we do this.
+         */
         serial_buffer_reset(sb);
         serial_buffer_append(sb, "+++");
-        cellular_exec_cmd(sb, 0, NULL, 0);
-
-	delayMs(500);
-
-        size_t tries = 10;
-        for (; tries; --tries) {
-                if (gsm_ping_modem(sb))
+        serial_buffer_tx(sb);
+        for (size_t events = 10; events; --events) {
+                if (serial_buffer_rx(sb, 1000) &&
+                    is_rsp_ok((const char**) &(sb->buffer), 1))
                         break;
+                serial_buffer_reset(sb);
         }
-        return tries > 0;
+        serial_buffer_reset(sb);
+
+        for (size_t tries = 3; tries; --tries) {
+                if (gsm_ping_modem(sb))
+                        return true;
+        }
+
+        return false;
 }
 
 static bool sara_u280_init(struct serial_buffer *sb,
@@ -321,18 +359,19 @@ static bool sara_u280_setup_pdp(struct serial_buffer *sb,
         if (!gprs_attached)
                 return false;
 
+        bool gprs_active = sara_u280_is_gprs_connected(sb);
+
         /* Setup APN */
-        const bool status =
-                sara_u280_put_pdp_config(sb, 0, cc->apnHost, cc->apnUser,
-                                         cc->apnPass) &&
-                sara_u280_put_dns_config(sb, cc->dns1, cc->dns2);
+        const bool status = gprs_active ||
+                (sara_u280_put_pdp_config(sb, 0, cc->apnHost,
+                                          cc->apnUser, cc->apnPass) &&
+                 sara_u280_put_dns_config(sb, cc->dns1, cc->dns2));
         if (!status) {
                 pr_warning("[sara_u280] APN/DNS config failed\r\n");
                 return false;
         }
 
-        bool gprs_active;
-        for (size_t tries = 3; tries; --tries) {
+        for (size_t tries = 3; tries && !gprs_active; --tries) {
                 gprs_active = sara_u280_activate_pdp(sb, 0);
 
                 if (gprs_active)
@@ -342,7 +381,8 @@ static bool sara_u280_setup_pdp(struct serial_buffer *sb,
                 delayMs(3000);
         }
         if (!gprs_active) {
-                pr_warning("[sara_u280] Failed connect GPRS\r\n");
+                pr_warning("[sara_u280] Failed connect GPRS. "
+                           "Check APN settings.\r\n");
                 return false;
         }
         pr_debug("[sara_u280] GPRS connected\r\n");
@@ -391,17 +431,17 @@ static bool sara_u280_disconnect(struct serial_buffer *sb,
         if (!sara_u280_stop_direct_mode(sb)) {
                 /* Then we don't know if can issue commands */
                 pr_warning("[sara_u280] Failed to escape Direct Mode\r\n");
-                return -1;
+                return false;
         }
 
         if (!sara_u280_close_tcp_socket(sb, ti->socket)) {
                 pr_warning_int_msg("[sara_u280] Failed to close socket ",
                                    ti->socket);
-                return -2;
+                return false;
         }
 
         ti->socket = -1;
-        return 0;
+        return true;
 }
 
 static const struct at_config* sara_u280_get_at_config()

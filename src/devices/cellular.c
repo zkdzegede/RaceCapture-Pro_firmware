@@ -310,10 +310,9 @@ static void reset_modem()
         pr_info("[cell] Resetting modem...\r\n");
         for (size_t times = 2; times; --times) {
                 cell_pwr_btn(true);
-                delayMs(500);
+                delayMs(1000);
                 cell_pwr_btn(false);
                 delayMs(500);
-
         }
 }
 
@@ -325,10 +324,10 @@ static int cellular_init_modem(struct serial_buffer *sb)
         reset_modem();
 
         /* First pause for 3 seconds to ensure device is ready */
-        pr_info("[cell] Waiting 3 seconds for device to be ready\r\n");
-        delayMs(3000);
+        pr_info("[cell] Waiting 5 seconds for device to be ready\r\n");
+        delayMs(5000);
 
-        if (!autobaud_modem(sb, 10, 500))
+        if (!autobaud_modem(sb, 5, 500))
                 return DEVICE_INIT_FAIL;
 
         if(!gsm_set_echo(sb, false))
@@ -415,7 +414,6 @@ int cellular_init_connection(DeviceConfig *config)
                 return DEVICE_INIT_FAIL;
         }
 
-        pr_debug("[cell]: Modem loaded.  Initializing... \r\n");
         if (!methods->init_modem(sb, &cell_info)) {
                 telemetry_info.status = TELEMETRY_STATUS_MODEM_INIT_FAILED;
                 return DEVICE_INIT_FAIL;

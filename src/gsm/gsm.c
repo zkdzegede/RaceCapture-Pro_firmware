@@ -197,13 +197,14 @@ bool gsm_is_gprs_attached(struct serial_buffer *sb)
         const char *cmd = "AT+CGATT?";
         const char *msgs[2];
         const size_t msgs_len = ARRAY_LEN(msgs);
-        const char *answrs[] = {"+CGATT: 1"};
+        const char *answrs[] = {"+CGATT: 0",
+                                "+CGATT: 1",};
         const size_t answrs_len = ARRAY_LEN(answrs);
 
         serial_buffer_reset(sb);
         serial_buffer_append(sb, cmd);
         return cellular_exec_match(sb, READ_TIMEOUT, msgs, msgs_len,
-                                   answrs, answrs_len, 0) == 0;
+                                   answrs, answrs_len, 0) == 1;
 }
 
 bool gsm_get_network_reg_info(struct serial_buffer *sb,

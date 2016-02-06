@@ -233,8 +233,7 @@ static bool sim900_close_tcp_socket(struct serial_buffer *sb,
         serial_buffer_append(sb, "AT+CIPCLOSE");
         const size_t count = cellular_exec_cmd(sb, MEDIUM_TIMEOUT, msgs,
                                                msgs_len);
-        return is_rsp_ok(msgs, count);
-
+        return is_rsp(msgs, count, "CLOSE OK");
 }
 
 static bool sim900_start_direct_mode(struct serial_buffer *sb,
@@ -249,20 +248,30 @@ static bool sim900_start_direct_mode(struct serial_buffer *sb,
 static bool sim900_stop_direct_mode(struct serial_buffer *sb)
 {
         /* Must delay min 1000ms before stopping direct mode */
-	delayMs(1100);
+	delayMs(2000);
 
+        /*
+         * Using straight serial buffer logic here instead of
+         * the AT command system because we can get data intended for
+         * the JSON parser while we do this.
+         */
         serial_buffer_reset(sb);
         serial_buffer_append(sb, "+++");
-        cellular_exec_cmd(sb, 0, NULL, 0);
-
-	delayMs(500);
-
-        size_t tries = 10;
-        for (; tries; --tries) {
-                if (gsm_ping_modem(sb))
+        serial_buffer_tx(sb);
+        for (size_t events = 10; events; --events) {
+                if (serial_buffer_rx(sb, 1000) &&
+                    is_rsp_ok((const char**) &(sb->buffer), 1))
                         break;
+                serial_buffer_reset(sb);
         }
-        return tries > 0;
+        serial_buffer_reset(sb);
+
+        for (size_t tries = 3; tries; --tries) {
+                if (gsm_ping_modem(sb))
+                        return true;
+        }
+
+        return false;
 }
 
 static bool get_sim_info(struct serial_buffer *sb,
@@ -277,7 +286,7 @@ static bool register_on_network(struct serial_buffer *sb,
                                 struct cellular_info *ci)
 {
         /* Check our status on the network */
-        for (size_t tries = 20; tries; --tries) {
+        for (size_t tries = 10; tries; --tries) {
                 sim900_get_net_reg_status(sb, ci);
 
                 switch(ci->net_status) {
