@@ -21,7 +21,6 @@
 
 #include "array_utils.h"
 #include "cellular.h"
-#include "cell_pwr_btn.h"
 #include "gsm.h"
 #include "printk.h"
 #include "serial_buffer.h"
@@ -170,7 +169,7 @@ static bool sim900_put_dns_config(struct serial_buffer *sb, const char* dns1,
 
 static bool sim900_activate_pdp(struct serial_buffer *sb, const int pdp_id)
 {
-        const char *msgs[2];
+        const char *msgs[1];
         const size_t msgs_len = ARRAY_LEN(msgs);
 
         serial_buffer_reset(sb);
@@ -210,13 +209,13 @@ static bool sim900_connect_tcp_socket(struct serial_buffer *sb,
                                       const char *host,
                                       const int port)
 {
-        const char *msgs[3];
+        const char *msgs[2];
         const size_t msgs_len = ARRAY_LEN(msgs);
 
         serial_buffer_reset(sb);
         serial_buffer_printf_append(sb, "AT+CIPSTART=\"%s\",\"%s\",\"%d\"",
                                     "TCP", host, port);
-        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
+        const size_t count = cellular_exec_cmd(sb, CONNECT_TIMEOUT, msgs,
                                                msgs_len);
         return is_rsp_ok(msgs, 1) && (
                 0 == strcmp("CONNECT OK", msgs[count - 1]) ||
@@ -232,7 +231,7 @@ static bool sim900_close_tcp_socket(struct serial_buffer *sb,
 
         serial_buffer_reset(sb);
         serial_buffer_append(sb, "AT+CIPCLOSE");
-        const size_t count = cellular_exec_cmd(sb, READ_TIMEOUT, msgs,
+        const size_t count = cellular_exec_cmd(sb, MEDIUM_TIMEOUT, msgs,
                                                msgs_len);
         return is_rsp_ok(msgs, count);
 
@@ -266,24 +265,12 @@ static bool sim900_stop_direct_mode(struct serial_buffer *sb)
         return tries > 0;
 }
 
-void sim900_power_cycle(const bool force_hard)
-{
-        cell_pwr_btn_init(CELLULAR_MODEM_SIM900);
-        cell_pwr_btn(true);
-        delayMs(2000);
-        cell_pwr_btn(false);
-        /* Delay here because takes time to boot device */
-        delayMs(5000);
-}
-
 static bool get_sim_info(struct serial_buffer *sb,
                          struct cellular_info *ci)
 {
-        sim900_get_imei(sb, ci);
-        sim900_get_signal_strength(sb, ci);
-        sim900_get_subscriber_number(sb, ci);
-
-        return true;
+        return sim900_get_imei(sb, ci) &&
+                sim900_get_signal_strength(sb, ci) &&
+                sim900_get_subscriber_number(sb, ci);
 }
 
 static bool register_on_network(struct serial_buffer *sb,
@@ -291,12 +278,12 @@ static bool register_on_network(struct serial_buffer *sb,
 {
         /* Check our status on the network */
         for (size_t tries = 20; tries; --tries) {
-                ci->net_status = sim900_get_net_reg_status(sb, ci);
+                sim900_get_net_reg_status(sb, ci);
+
                 switch(ci->net_status) {
                 case CELLULAR_NETWORK_DENIED:
                 case CELLULAR_NETWORK_REGISTERED:
-                        tries = 0;
-                        continue;
+                        goto out;
                 default:
                         break;
                 }
@@ -305,6 +292,7 @@ static bool register_on_network(struct serial_buffer *sb,
                 delayMs(3000);
         }
 
+out:
         return CELLULAR_NETWORK_REGISTERED == ci->net_status;
 }
 
@@ -334,7 +322,7 @@ static bool setup_pdp(struct serial_buffer *sb,
                 sim900_put_pdp_config(sb, 0, cc->apnHost, cc->apnUser,
                                       cc->apnPass);
         if (!status) {
-                pr_warning("[sim900] APN/DNS config failed\r\n");
+                pr_warning("[sim900] APN config failed\r\n");
                 return false;
         }
 
@@ -364,7 +352,10 @@ static bool setup_pdp(struct serial_buffer *sb,
                 return false;
         pr_debug("[sim900] IP acquired\r\n");
 
-        sim900_put_dns_config(sb, cc->dns1, cc->dns2);
+        if (!sim900_put_dns_config(sb, cc->dns1, cc->dns2)) {
+                /* NON-Fatal */
+                pr_warning("[sim900] DNS config failed\r\n");
+        }
 
         return true;
 }
@@ -406,8 +397,18 @@ static bool disconnect(struct serial_buffer *sb, struct cellular_info *ci,
         return 0;
 }
 
+static const struct at_config* sim900_get_at_config()
+{
+        /* Optimized AT config values for SIM900 */
+        static const struct at_config cfg = {
+                .urc_delay_ms = 250,
+        };
+
+        return &cfg;
+}
 
 static const struct cell_modem_methods sim900_methods = {
+        .get_at_config = sim900_get_at_config,
         .init_modem = sim900_init_settings,
         .get_sim_info = get_sim_info,
         .register_on_network = register_on_network,

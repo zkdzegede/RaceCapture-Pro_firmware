@@ -29,14 +29,6 @@
 
 CPP_GUARD_BEGIN
 
-/**
- * Controlls the cellular power button for the hardware
- * @param cm The cellular modem in use.
- * @param pressed Whether or not the button is pressed.
- */
-
-void cell_pwr_btn_init(const enum cellular_modem cm);
-
 void cell_pwr_btn(const bool pressed);
 
 CPP_GUARD_END

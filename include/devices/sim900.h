@@ -30,9 +30,6 @@
 
 CPP_GUARD_BEGIN
 
-/* XXX STIEG: TEMPORARY */
-void sim900_power_cycle(const bool force_hard);
-
 const struct cell_modem_methods* get_sim900_methods();
 
 CPP_GUARD_END

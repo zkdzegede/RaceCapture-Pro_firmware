@@ -53,7 +53,7 @@ typedef enum {
 enum cellular_modem {
         CELLULAR_MODEM_UNKNOWN = 0,
         CELLULAR_MODEM_SIM900,
-        CELLULAR_MODEM_UBLOX_SARA,
+        CELLULAR_MODEM_UBLOX_SARA_U280,
 };
 
 enum cellmodem_status {
@@ -80,6 +80,10 @@ enum cellular_net_status {
 /* Don't know a good value.  So setting arbitrary one. */
 #define CELLULAR_INFO_OPERATOR_MAX_LEN 18
 
+struct at_config {
+        unsigned int urc_delay_ms;
+};
+
 struct cellular_info {
         enum cellmodem_status status;
         enum cellular_net_status net_status;
@@ -97,14 +101,15 @@ struct telemetry_info {
 
 
 struct cell_modem_methods {
+        const struct at_config* (*get_at_config)();
         bool (*init_modem)(struct serial_buffer *sb,
                            struct cellular_info *ci);
         bool (*get_sim_info)(struct serial_buffer *sb,
                              struct cellular_info *ci);
         bool (*register_on_network)(struct serial_buffer *sb,
-                             struct cellular_info *ci);
+                                    struct cellular_info *ci);
         bool (*get_network_info)(struct serial_buffer *sb,
-                             struct cellular_info *ci);
+                                 struct cellular_info *ci);
         bool (*setup_pdp)(struct serial_buffer *sb,
                           struct cellular_info *ci,
                           const CellularConfig *cc);

@@ -34,41 +34,28 @@
 #include "printk.h"
 #include "serial_buffer.h"
 #include "serial.h"
+#include "sara_u280.h"
 #include "sim900.h"
 #include "taskUtil.h"
 
 #include <stdbool.h>
 
-/* The pause time (in ms) for Unexpected Response Codes */
-/* XXX SIM900 SUCKS! */
-#define CELLULAR_URC_PAUSE_MS 250
-#define TELEMETRY_SERVER_PORT "8080"
-
-const struct cell_modem_methods* methods;
+static const struct cell_modem_methods* methods;
+static const struct at_config *at_cfg;
 
 static struct cellular_info cell_info;
 static struct telemetry_info telemetry_info;
-static const enum log_level serial_dbg_lvl = INFO;
+static const enum log_level serial_dbg_lvl = TRACE;
 
-#if 0
-static bool cell_rx_is_useful_msg(const char *msg)
+static const struct at_config* get_safe_at_config()
 {
-        if (NULL == msg)
-                return false;
+        /* Safe but un-optimal values for all modems */
+        static const struct at_config cfg = {
+                .urc_delay_ms = 250,
+        };
 
-        /*
-         * If the first character of the message is \r or \n
-         * then its not going to be a useful message to us.
-         */
-        switch(*msg) {
-        case('\r'):
-        case('\n'):
-                return false;
-        default:
-                return true;
-        }
+        return &cfg;
 }
-#endif
 
 static void cell_serial_tx_cb(const char *data)
 {
@@ -96,27 +83,24 @@ static void cell_serial_tx_cb(const char *data)
 
 static void cell_serial_rx_cb(const char *data)
 {
-        static bool pr_rx_pfx = true;
+        static bool new_line = true;
 
         if (NULL == data)
                 return;
 
-        printk_str_msg(serial_dbg_lvl, "[cell] rx: ", data);
-        return;
-
         for(; *data; ++data) {
-                if (pr_rx_pfx) {
+                if (new_line) {
                         printk(serial_dbg_lvl, "[cell] rx: ");
-                        pr_rx_pfx = false;
+                        new_line = false;
                 }
 
                 switch(*data) {
                 case('\r'):
-                        printk(serial_dbg_lvl, "<cr>\r");
+                        printk(serial_dbg_lvl, "<cr>");
                         break;
                 case('\n'):
-                        printk(serial_dbg_lvl, "<lf>\n");
-                        pr_rx_pfx = true;
+                        printk(serial_dbg_lvl, "<lf>\r\n");
+                        new_line = true;
                         break;
                 default:
                         printk_char(serial_dbg_lvl, *data);
@@ -142,7 +126,10 @@ size_t cellular_exec_cmd(struct serial_buffer *sb,
          *       This will likely require a re-write of how cellular is
          *       done.
          */
-        delayMs(CELLULAR_URC_PAUSE_MS);
+        if (NULL == at_cfg)
+                at_cfg = get_safe_at_config();
+
+        delayMs(at_cfg->urc_delay_ms);
 
         return rv;
 }
@@ -220,15 +207,30 @@ const char* cell_get_IMEI()
 static bool get_methods(const enum cellular_modem modem,
                         const struct cell_modem_methods **methods)
 {
+        const char *modem_name = NULL;
+        *methods = NULL;
+
         switch(modem) {
         case CELLULAR_MODEM_SIM900:
+                modem_name = "SIM900";
                 *methods = get_sim900_methods();
                 break;
+        case CELLULAR_MODEM_UBLOX_SARA_U280:
+                modem_name = "UBlox Sara U280";
+                *methods = get_sara_u280_methods();
+                break;
         default:
-                *methods = NULL;
+                break;
         }
 
-        return NULL != *methods;
+        if (!*methods) {
+                pr_warning_int_msg("[cell] Unknown modem code: ", modem);
+                return false;
+        }
+
+        at_cfg = (*methods)->get_at_config();
+        pr_info_str_msg("[cell] Loading driver for ", modem_name);
+        return true;
 }
 
 
@@ -270,8 +272,12 @@ enum cellular_modem probe_cellular_manuf(struct serial_buffer *sb)
 
         pr_info_str_msg("[cell] manufacturer is ", msgs[0]);
 
-        /* TODO: Finish me.  Only support UBLOX_SARA now.*/
-        return CELLULAR_MODEM_UBLOX_SARA;
+        if (strstr(msgs[0], "u-blox"))
+                return CELLULAR_MODEM_UBLOX_SARA_U280;
+        else if (strstr(msgs[0], "SIMCOM_Ltd"))
+                return CELLULAR_MODEM_SIM900;
+        else
+                return CELLULAR_MODEM_UNKNOWN;
 }
 
 telemetry_status_t cellular_get_connection_status()
@@ -299,13 +305,24 @@ int cellular_disconnect(DeviceConfig *config)
         return 0;
 }
 
+static void reset_modem()
+{
+        pr_info("[cell] Resetting modem...\r\n");
+        for (size_t times = 2; times; --times) {
+                cell_pwr_btn(true);
+                delayMs(500);
+                cell_pwr_btn(false);
+                delayMs(500);
+
+        }
+}
+
 /**
  * Puts the device in a state that is ready to use.
  */
 static int cellular_init_modem(struct serial_buffer *sb)
 {
-        /* XXX: SIM900 HACK.  Replace with generic method? */
-        sim900_power_cycle(true);
+        reset_modem();
 
         /* First pause for 3 seconds to ensure device is ready */
         pr_info("[cell] Waiting 3 seconds for device to be ready\r\n");
@@ -320,17 +337,6 @@ static int cellular_init_modem(struct serial_buffer *sb)
         return DEVICE_INIT_SUCCESS;
 }
 
-#if 0
-static int get_sim_info(struct serial_buffer *sb)
-{
-        /* At this point system is configured properly. Use specific cmds */
-        sim900_get_imei(sb, &cell_info);
-        sim900_get_signal_strength(sb, &cell_info);
-        sim900_get_subscriber_number(sb, &cell_info);
-        return DEVICE_INIT_SUCCESS;
-}
-#endif
-
 static void print_registration_failure()
 {
         pr_info("[cell] Network registration failed: ");
@@ -342,93 +348,12 @@ static void print_registration_failure()
                 pr_info("Access denied.  Call provider.");
                 break;
         default:
-                pr_info("Unknown reason.  Notify autosportlabs.");
-                break;
+                pr_info("Unknown reason. ");
+                pr_info_int_msg("Message code ", cell_info.net_status);
+                return;
         }
         pr_info("\r\n");
 }
-
-#if 0
-static bool setup_gprs(struct serial_buffer *sb,
-                       CellularConfig *cc)
-{
-        /* Check GPRS attached */
-        bool gprs_attached;
-        for (size_t tries = 10; tries; --tries) {
-                gprs_attached = sim900_is_gprs_attached(sb);
-
-                if (gprs_attached)
-                        break;
-
-                /* Wait before trying again.  Arbitrary backoff */
-                delayMs(3000);
-        }
-        pr_info_str_msg("[cell] GPRS Attached: ", gprs_attached ? "yes" : "no");
-        if (!gprs_attached)
-                return false;
-
-        /* Setup APN */
-        const bool status =
-                sim900_put_pdp_config(sb, 0, cc->apnHost, cc->apnUser,
-                                      cc->apnPass);
-        if (!status) {
-                pr_warning("[cell] APN/DNS config failed\r\n");
-                return false;
-        }
-
-        bool gprs_active;
-        for (size_t tries = 3; tries; --tries) {
-                gprs_active = sim900_activate_pdp(sb, 0);
-
-                if (gprs_active)
-                        break;
-
-                /* Wait before trying again.  Arbitrary backoff */
-                delayMs(3000);
-        }
-        if (!gprs_active) {
-                pr_warning("[cell] Failed connect GPRS\r\n");
-                return false;
-        }
-        pr_debug("[cell] GPRS connected\r\n");
-
-        /* Wait to get the IP */
-        bool has_ip = false;
-        for (size_t tries = 5; tries && !has_ip; --tries) {
-                has_ip = sim900_get_ip_address(sb);
-                delayMs(1000);
-        }
-        if (!has_ip)
-                return false;
-        pr_debug("[cell] IP acquired\r\n");
-
-        sim900_put_dns_config(sb, cc->dns1, cc->dns2);
-
-        return true;
-}
-
-static bool connect_rcl_telem(struct serial_buffer *sb,
-                              const TelemetryConfig *tc)
-{
-        const int socket_id = sim900_create_tcp_socket(sb);
-        if (socket_id < 0) {
-                pr_warning("[cell] Failed to create socket\r\n");
-                telemetry_info.socket = -1;
-                return false;
-        }
-        telemetry_info.socket = socket_id;
-
-        /* const char *host = tc->telemetryServerHost; */
-        const char *host = "telemetry.race-capture.com";
-        const int port = 8080;
-        if (!sim900_connect_tcp_socket(sb, socket_id, host, port)) {
-                pr_warning_str_msg("[cell] Failed to connect to ", host);
-                return false;
-        }
-
-        return sim900_start_direct_mode(sb, socket_id);
-}
-#endif
 
 static bool auth_telem_stream(struct serial_buffer *sb,
                               const TelemetryConfig *tc)
@@ -437,7 +362,6 @@ static bool auth_telem_stream(struct serial_buffer *sb,
 
         const char *deviceId = tc->telemetryDeviceId;
 
-        /* TODO Replace with creation of buffer in memory */
         Serial *serial = sb->serial;
         json_objStart(serial);
         json_objStartString(serial, "auth");
