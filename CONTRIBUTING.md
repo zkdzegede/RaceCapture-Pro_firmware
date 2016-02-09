@@ -97,25 +97,37 @@ Rebasing is done using the following steps from the command line:
 
 * Add our remote if you haven't already.  Here is the command to help
   you out:
-  <br>
+  <br><br>
   ```
   $ git remote add rcp_firmware https://github.com/autosportlabs/RaceCapture-Pro_firmware.git
   ```
-  <br>
+  <br><br>
   This would add a remote named `rcp_firmeware` that points
   to our public repo.
-* Ensure your local git tree has up to date information about our git tree
-  by running a fetch against our repository.  This is done as follows:
- * `git fetch <remote name>`
-* Rebase your branch against the appropriate release branch.  The command
-  would look something like this:
- * `git checkout <your branch>`
- * `git rebase <the release branch`
-
-  Otherwise your merges may
-be messy.  Once you have the correct branch picked, rebase your patch
-on to it.  You may hit conflicts while doing this.  Once you solve
-those conflicts, you are ready to build and test.
+* Ensure your local git tree has up to date information about our git
+  tree by running a fetch against our repository.  This is done using
+  the git fetch command.  Here is an example using the `rcp_firmware`
+  remote as the target:
+  <br><br>
+  ```
+  $ git fetch rcp_firmware
+  ```
+  <br<br>
+  Obviously your remote name may be different.  Adjust accordingly.
+* Rebase your branch against the appropriate release branch.  Assuming
+  that your branch is named `my_feature` and the release branch is
+  named `/r/2.8.8` in the remote `rcp_firmware`, here is what the
+  command would look like:
+  <br><br>
+  ```
+  $ git checkout my_feature
+  $ git rebase rcp_firmware/r/2.8.8
+  ```
+  <br<br>
+  That should get you rebased against the latest version of the 2.8.8
+  branch.  Enssure you have followed all of git's instructions during
+  this process.  Remember that if things get too hairy... you can
+  always abort the rebase using the `git rebase --abort` command.
 
 ## Building and Testing
 
