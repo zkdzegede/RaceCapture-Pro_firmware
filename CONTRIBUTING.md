@@ -97,9 +97,10 @@ Rebasing is done using the following steps from the command line:
 
 * Add our remote if you haven't already.  Here is the command to help
   you out.  This would add a remote named `rcp_firmeware` that points
-  to our public repo. ```sh
- git remote add rcp_firmware https://github.com/autosportlabs/RaceCapture-Pro_firmware.git
- ```
+  to our public repo.
+  ```sh
+  $ git remote add rcp_firmware https://github.com/autosportlabs/RaceCapture-Pro_firmware.git
+  ```
 * Ensure your local git tree has up to date information about our git tree
   by running a fetch against our repository.  This is done as follows:
  * `git fetch <remote name>`
