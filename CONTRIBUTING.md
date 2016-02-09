@@ -112,7 +112,7 @@ Rebasing is done using the following steps from the command line:
   ```
   $ git fetch rcp_firmware
   ```
-  <br<br>
+  <br><br>
   Obviously your remote name may be different.  Adjust accordingly.
 * Rebase your branch against the appropriate release branch.  Assuming
   that your branch is named `my_feature` and the release branch is
@@ -123,7 +123,7 @@ Rebasing is done using the following steps from the command line:
   $ git checkout my_feature
   $ git rebase rcp_firmware/r/2.8.8
   ```
-  <br<br>
+  <br><br>
   That should get you rebased against the latest version of the 2.8.8
   branch.  Enssure you have followed all of git's instructions during
   this process.  Remember that if things get too hairy... you can
