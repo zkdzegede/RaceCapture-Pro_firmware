@@ -21,7 +21,7 @@
 
 
 #include "FreeRTOS.h"
-#include "LED.h"
+#include "led.h"
 #include "api.h"
 #include "bluetooth.h"
 #include "capabilities.h"
@@ -31,18 +31,19 @@
 #include "loggerConfig.h"
 #include "loggerHardware.h"
 #include "mem_mang.h"
-#include "mod_string.h"
+#include <string.h>
 #include "modp_numtoa.h"
 #include "null_device.h"
 #include "printk.h"
 #include "queue.h"
 #include "sampleRecord.h"
 #include "serial.h"
-#include "sim900.h"
+#include "cellular.h"
 #include "stdint.h"
 #include "task.h"
 #include "taskUtil.h"
 #include "usart.h"
+
 
 #if (CONNECTIVITY_CHANNELS == 1)
 #define CONNECTIVITY_TASK_INIT {NULL}
@@ -60,7 +61,7 @@
 #define BUFFER_SIZE 							1025
 #define TELEMETRY_DISCONNECT_TIMEOUT            60000
 
-#define TELEMETRY_STACK_SIZE  					1000
+#define TELEMETRY_STACK_SIZE	256
 #define BAD_MESSAGE_THRESHOLD					10
 
 #define METADATA_SAMPLE_INTERVAL				100
@@ -80,9 +81,15 @@ static size_t trimBuffer(char *buffer, size_t count)
     return count;
 }
 
-static int processRxBuffer(Serial *serial, char *buffer, size_t *rxCount)
+static int processRxBuffer(struct Serial *serial, char *buffer, size_t *rxCount)
 {
-    size_t count = serial->get_line_wait(buffer + *rxCount, BUFFER_SIZE - *rxCount, 0);
+        const int count = serial_read_line_wait(serial, buffer + *rxCount,
+						BUFFER_SIZE - *rxCount, 0);
+
+	if (count < 0) {
+		pr_error("[connectivityTask] Serial device closed\r\n");
+		return 0;
+	}
 
     *rxCount += count;
     int processMsg = 0;
@@ -111,79 +118,108 @@ void queueTelemetryRecord(const LoggerMessage *msg)
 
 /*combined telemetry - for when there's only one telemetry / wireless port available on system
 //e.g. "Y-adapter" scenario */
-static void createCombinedTelemetryTask(int16_t priority, xQueueHandle sampleQueue)
+static void createCombinedTelemetryTask(int16_t priority,
+                                        xQueueHandle sampleQueue)
 {
-    ConnectivityConfig *connConfig = &getWorkingLoggerConfig()->ConnectivityConfigs;
-    size_t btEnabled = connConfig->bluetoothConfig.btEnabled;
-    size_t cellEnabled = connConfig->cellularConfig.cellEnabled;
+        ConnectivityConfig *connConfig =
+                &getWorkingLoggerConfig()->ConnectivityConfigs;
+        size_t btEnabled = connConfig->bluetoothConfig.btEnabled;
+        size_t cellEnabled = connConfig->cellularConfig.cellEnabled;
 
-    if (btEnabled || cellEnabled) {
+        if (btEnabled || cellEnabled) {
+                ConnParams * params = (ConnParams *)portMalloc(sizeof(ConnParams));
+
+                params->periodicMeta = btEnabled && cellEnabled;
+
+                /*defaults*/
+                params->check_connection_status = &null_device_check_connection_status;
+                params->init_connection = &null_device_init_connection;
+                params->serial = SERIAL_TELEMETRY;
+                params->sampleQueue = sampleQueue;
+                params->connection_timeout = 0;
+                params->always_streaming = false;
+
+                if (btEnabled) {
+                        params->check_connection_status = &bt_check_connection_status;
+                        params->init_connection = &bt_init_connection;
+                        params->disconnect = &bt_disconnect;
+                        params->always_streaming = true;
+                        params->max_sample_rate = SAMPLE_50Hz;
+                }
+
+#if CELLULAR_SUPPORT
+                /*cell overrides wireless*/
+                if (cellEnabled) {
+                        params->check_connection_status = &cellular_check_connection_status;
+                        params->init_connection = &cellular_init_connection;
+                        params->disconnect = &cellular_disconnect;
+                        params->always_streaming = false;
+                        params->max_sample_rate = SAMPLE_10Hz;
+                }
+#endif
+                /* Make all task names 16 chars including NULL char */
+                static const signed portCHAR task_name[] = "Multi Conn Task";
+                xTaskCreate(connectivityTask, task_name, TELEMETRY_STACK_SIZE,
+                            params, priority, NULL );
+        }
+}
+
+static void createWirelessConnectionTask(int16_t priority,
+                                         xQueueHandle sampleQueue,
+                                         uint8_t isPrimary)
+{
+#if BLUETOOTH_SUPPORT
+        ConnParams *params = portMalloc(sizeof(ConnParams));
+        params->isPrimary = isPrimary;
+        params->connectionName = "Wireless";
+        params->periodicMeta = 0;
+        params->connection_timeout = 0;
+        params->check_connection_status = &bt_check_connection_status;
+        params->disconnect = &bt_disconnect;
+        params->init_connection = &bt_init_connection;
+        params->serial = SERIAL_BLUETOOTH;
+        params->sampleQueue = sampleQueue;
+        params->always_streaming = true;
+        params->max_sample_rate = SAMPLE_50Hz;
+
+        /* Make all task names 16 chars including NULL char */
+        static const signed portCHAR task_name[] = "Bluetooth Task ";
+        xTaskCreate(connectivityTask, task_name, TELEMETRY_STACK_SIZE,
+                    params, priority, NULL );
+#endif
+}
+
+static void createTelemetryConnectionTask(int16_t priority,
+                                          xQueueHandle sampleQueue,
+                                          uint8_t isPrimary)
+{
+#if CELLULAR_SUPPORT
         ConnParams * params = (ConnParams *)portMalloc(sizeof(ConnParams));
-
-        params->periodicMeta = btEnabled && cellEnabled;
-
-        /*defaults*/
-        params->check_connection_status = &null_device_check_connection_status;
-        params->init_connection = &null_device_init_connection;
+        params->isPrimary = isPrimary;
+        params->connectionName = "Telemetry";
+        params->periodicMeta = 0;
+        params->connection_timeout = TELEMETRY_DISCONNECT_TIMEOUT;
+        params->disconnect = &cellular_disconnect;
+        params->check_connection_status = &cellular_check_connection_status;
+        params->init_connection = &cellular_init_connection;
         params->serial = SERIAL_TELEMETRY;
         params->sampleQueue = sampleQueue;
-        params->connection_timeout = 0;
         params->always_streaming = false;
+        params->max_sample_rate = SAMPLE_10Hz;
 
-        if (btEnabled) {
-            params->check_connection_status = &bt_check_connection_status;
-            params->init_connection = &bt_init_connection;
-            params->disconnect = &bt_disconnect;
-            params->always_streaming = true;
-        }
+        /* Make all task names 16 chars including NULL char */
+        static const signed portCHAR task_name[] = "Cell Telem Task";
 
-        /*cell overrides wireless*/
-        if (cellEnabled) {
-            params->check_connection_status = &sim900_check_connection_status;
-            params->init_connection = &sim900_init_connection;
-            params->disconnect = &sim900_disconnect;
-            params->always_streaming = false;
-        }
-        xTaskCreate(connectivityTask, (signed portCHAR *) "connTask", TELEMETRY_STACK_SIZE, params, priority, NULL );
-    }
-}
-
-static void createWirelessConnectionTask(int16_t priority, xQueueHandle sampleQueue, uint8_t isPrimary)
-{
-    ConnParams * params = (ConnParams *)portMalloc(sizeof(ConnParams));
-    params->isPrimary = isPrimary;
-    params->connectionName = "Wireless";
-    params->periodicMeta = 0;
-    params->connection_timeout = 0;
-    params->check_connection_status = &bt_check_connection_status;
-    params->disconnect = &bt_disconnect;
-    params->init_connection = &bt_init_connection;
-    params->serial = SERIAL_WIRELESS;
-    params->sampleQueue = sampleQueue;
-    params->always_streaming = true;
-    xTaskCreate(connectivityTask, (signed portCHAR *) "connWireless", TELEMETRY_STACK_SIZE, params, priority, NULL );
-}
-
-static void createTelemetryConnectionTask(int16_t priority, xQueueHandle sampleQueue, uint8_t isPrimary)
-{
-    ConnParams * params = (ConnParams *)portMalloc(sizeof(ConnParams));
-    params->isPrimary = isPrimary;
-    params->connectionName = "Telemetry";
-    params->periodicMeta = 0;
-    params->connection_timeout = TELEMETRY_DISCONNECT_TIMEOUT;
-    params->disconnect = &sim900_disconnect;
-    params->check_connection_status = &sim900_check_connection_status;
-    params->init_connection = &sim900_init_connection;
-    params->serial = SERIAL_TELEMETRY;
-    params->sampleQueue = sampleQueue;
-    params->always_streaming = false;
-    xTaskCreate(connectivityTask, (signed portCHAR *) "connTelemetry", TELEMETRY_STACK_SIZE, params, priority, NULL );
+        xTaskCreate(connectivityTask, task_name, TELEMETRY_STACK_SIZE,
+                    params, priority, NULL );
+#endif
 }
 
 void startConnectivityTask(int16_t priority)
 {
         for (size_t i = 0; i < CONNECTIVITY_CHANNELS; i++) {
                 g_sampleQueue[i] = create_logger_message_queue();
+
                 if (NULL == g_sampleQueue[i]) {
                         pr_error("conn: err sample queue\r\n");
                         return;
@@ -223,12 +259,12 @@ void startConnectivityTask(int16_t priority)
 
 static void toggle_connectivity_indicator()
 {
-    LED_toggle(0);
+        led_toggle(LED_TELEMETRY);
 }
 
 static void clear_connectivity_indicator()
 {
-    LED_disable(0);
+        led_disable(LED_TELEMETRY);
 }
 
 void connectivityTask(void *params)
@@ -240,10 +276,11 @@ void connectivityTask(void *params)
     ConnParams *connParams = (ConnParams*)params;
     LoggerMessage msg;
 
-    Serial *serial = get_serial(connParams->serial);
+    struct Serial *serial = serial_device_get(connParams->serial);
 
     xQueueHandle sampleQueue = connParams->sampleQueue;
     uint32_t connection_timeout = connParams->connection_timeout;
+    const size_t max_telem_rate = connParams->max_sample_rate;
 
     DeviceConfig deviceConfig;
     deviceConfig.serial = serial;
@@ -264,7 +301,7 @@ void connectivityTask(void *params)
             vTaskDelay(INIT_DELAY);
         }
 
-        serial->flush();
+        serial_flush(serial);
         rxCount = 0;
         size_t badMsgCount = 0;
         size_t tick = 0;
@@ -308,16 +345,17 @@ void connectivityTask(void *params)
                     break;
                 }
                 case LoggerMessageType_Sample: {
-                        if (!should_stream)
+                        if (!should_stream ||
+                            !should_sample(msg.ticks, max_telem_rate))
                                 break;
+
+                        if (connParams->isPrimary)
+                                toggle_connectivity_indicator();
 
                         const int send_meta = tick == 0 ||
                                 (connParams->periodicMeta &&
                                  (tick % METADATA_SAMPLE_INTERVAL == 0));
                         api_send_sample_record(serial, msg.sample, tick, send_meta);
-
-                        if (connParams->isPrimary)
-                                toggle_connectivity_indicator();
 
                         put_crlf(serial);
                         tick++;
@@ -338,14 +376,13 @@ void connectivityTask(void *params)
                 pr_info("conn: disconnected\r\n");
                 break;
             }
+
             /*now process a complete message if available*/
             if (msgReceived) {
                 last_message_time = getUptimeAsInt();
-                pr_debug(connParams->connectionName);
-                pr_debug_str_msg(": rx: ", buffer);
-                int msgRes = process_api(serial, buffer, BUFFER_SIZE);
 
-                int msgError = (msgRes == API_ERROR_MALFORMED);
+                const int msgRes = process_api(serial, buffer, BUFFER_SIZE);
+                const int msgError = (msgRes == API_ERROR_MALFORMED);
                 if (msgError) {
                     pr_debug("(failed)\r\n");
                 }
@@ -369,6 +406,7 @@ void connectivityTask(void *params)
                 should_reconnect = true;
             }
         }
+
         clear_connectivity_indicator();
         connParams->disconnect(&deviceConfig);
     }

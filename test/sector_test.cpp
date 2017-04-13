@@ -1,15 +1,36 @@
-#include "sector_test.h"
-#include "gps.testing.h"
-#include "loggerConfig.h"
-#include <stdlib.h>
-#include <fstream>
-#include <streambuf>
-#include "mod_string.h"
-#include "modp_atonum.h"
-#include "lap_stats.h"
-#include "rcp_cpp_unit.hh"
+/*
+ * Race Capture Firmware
+ *
+ * Copyright (C) 2016 Autosport Labs
+ *
+ * This file is part of the Race Capture firmware suite
+ *
+ * This is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * See the GNU General Public License for more details. You should
+ * have received a copy of the GNU General Public License along with
+ * this code. If not, see <http://www.gnu.org/licenses/>.
+ */
 
+#include "gps.testing.h"
+#include "lap_stats.h"
+#include "loggerConfig.h"
+#include "mock_serial.h"
+#include "rcp_cpp_unit.hh"
+#include "sector_test.h"
 #include <cppunit/extensions/HelperMacros.h>
+#include <fstream>
+#include <stdlib.h>
+#include <streambuf>
+#include <string.h>
+
 using std::ifstream;
 using std::ios;
 using std::istreambuf_iterator;
@@ -35,16 +56,21 @@ static int atoiOffsetLenSafe(const char *str, size_t offset, size_t len) {
          len = sizeof(buff) - 1;
 
    memcpy(buff, str + offset, len);
-   return modp_atoi(buff);
+   return atoi(buff);
 }
 
 void SectorTest::setUp()
 {
-	GPS_init(10, get_serial(SERIAL_GPS));
-	lapStats_init();
+        setupMockSerial();
+	GPS_init(10, getMockSerial());
+	lapstats_config_changed();
 }
 
-
+bool SectorTest::is_debug()
+{
+	const bool debug = getenv("TRACE") != NULL;
+	return debug;
+}
 void SectorTest::tearDown()
 {
 }
@@ -100,8 +126,9 @@ string SectorTest::readFile(string filename){
 	}
 
 void SectorTest::outputSectorTimes(vector<float> & sectorTimes, int lap){
+	const bool debug = this->is_debug();
 	for (size_t i = 0; i < sectorTimes.size(); i++){
-		//printf("lap %d | sector %d | %f\r", lap, i + 1, sectorTimes[i]);
+		if (debug) printf("lap %d | sector %zu | %f\r", lap, i + 1, sectorTimes[i]);
 	}
 }
 
@@ -114,7 +141,8 @@ float SectorTest::sumSectorTimes(vector<float> & sectorTimes){
 }
 
 void SectorTest::testSectorTimes(){
-	//printf("\rSector Times:\r");
+	const bool debug = this->is_debug();
+	if (debug) printf("\rSector Times:\r");
 	string log = readFile("predictive_time_test_lap.log");
 
 	std::istringstream iss(log);
@@ -133,7 +161,6 @@ void SectorTest::testSectorTimes(){
 	int lineNo = 0;
 	string line;
 
-        const bool debug = getenv("DEBUG") != NULL;
         if (debug) printf("\r\n");
 
 	while (std::getline(iss, line)) {
@@ -154,9 +181,9 @@ void SectorTest::testSectorTimes(){
                printf("%d,%d,%d,%f\n",lapstats_current_lap(), getLapCount(), getSector(), getLapDistanceInMiles());
            }
 
-           float lat = modp_atof(latitudeRaw.c_str());
-           float lon = modp_atof(longitudeRaw.c_str());
-           float speed = modp_atof(speedRaw.c_str());
+           float lat = atof(latitudeRaw.c_str());
+           float lon = atof(longitudeRaw.c_str());
+           float speed = atof(speedRaw.c_str());
 
            const char *utcTimeStr = timeRaw.c_str();
            DateTime dt;
@@ -232,6 +259,7 @@ void SectorTest::testSectorTimes(){
 }
 
 void SectorTest::testStageSectorTimes() {
+  const bool debug = this->is_debug();
   const Track track = {
     3333,
     TRACK_TYPE_STAGE,
@@ -303,10 +331,10 @@ void SectorTest::testStageSectorTimes() {
     GpsSnapshot snap = getGpsSnapshot();
     lapstats_processUpdate(&snap);
 
-    /*
+    if (debug) {
     printf("second: %d, atSector = %d, sectorCount = %d, lastSector = %d\n",
            dt.second, getAtSector(), getSector(), getLastSector());
-    */
+    }
 
     if (areGeoPointsEqual(*gp, fakePoint)) {
       // Then we should not be at a sector.

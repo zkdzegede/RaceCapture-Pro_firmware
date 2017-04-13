@@ -1,9 +1,9 @@
 /*
- * Race Capture Pro Firmware
+ * Race Capture Firmware
  *
- * Copyright (C) 2015 Autosport Labs
+ * Copyright (C) 2016 Autosport Labs
  *
- * This file is part of the Race Capture Pro fimrware suite
+ * This file is part of the Race Capture firmware suite
  *
  * This is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -19,9 +19,8 @@
  * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "FreeRTOS.h"
-#include "LED.h"
+#include "led.h"
 #include "capabilities.h"
 #include "connectivityTask.h"
 #include "fileWriter.h"
@@ -34,16 +33,18 @@
 #include "loggerHardware.h"
 #include "loggerSampleData.h"
 #include "loggerTaskEx.h"
-#include "mod_string.h"
+#include "macros.h"
+#include <string.h>
+#include "panic.h"
 #include "printk.h"
 #include "sampleRecord.h"
 #include "semphr.h"
+#include "serial.h"
 #include "task.h"
 #include "taskUtil.h"
 #include "watchdog.h"
 
-#define LOGGER_TASK_PRIORITY	( tskIDLE_PRIORITY + 4 )
-#define LOGGER_STACK_SIZE	200
+#define LOGGER_STACK_SIZE	152
 #define IDLE_TIMEOUT	configTICK_RATE_HZ / 1
 
 #define BACKGROUND_SAMPLE_RATE	SAMPLE_50Hz
@@ -59,12 +60,12 @@ static struct sample g_sample_buffer[LOGGER_MESSAGE_BUFFER_SIZE];
 
 static LoggerMessage getLogStartMessage()
 {
-        return create_logger_message(LoggerMessageType_Start, NULL);
+        return create_logger_message(LoggerMessageType_Start, 0, NULL);
 }
 
 static LoggerMessage getLogStopMessage()
 {
-        return create_logger_message(LoggerMessageType_Stop, NULL);
+        return create_logger_message(LoggerMessageType_Stop, 0, NULL);
 }
 
 /**
@@ -72,7 +73,8 @@ static LoggerMessage getLogStopMessage()
  */
 void vApplicationTickHook(void)
 {
-    xSemaphoreGiveFromISR(onTick, pdFALSE);
+    if (onTick)
+        xSemaphoreGiveFromISR(onTick, pdFALSE);
 }
 
 void configChanged()
@@ -93,21 +95,26 @@ void stopLogging()
 static void logging_started()
 {
     logging_set_logging_start(getUptimeAsInt());
-    LED_disable(3);
+    led_disable(LED_LOGGER);
     pr_info("Logging started\r\n");
 }
 
 static void logging_stopped()
 {
     logging_set_logging_start(0);
-    LED_disable(2);
+    led_disable(LED_LOGGER);
     pr_info("Logging stopped\r\n");
 }
 
 void startLoggerTaskEx(int priority)
 {
-    xTaskCreate(loggerTaskEx, ( signed portCHAR * ) "logger",
-                 LOGGER_STACK_SIZE, NULL, priority, NULL );
+        /* Make all task names 16 chars including NULL char */
+        static const signed portCHAR task_name[] = "Logger Task    ";
+        const bool status = xTaskCreate(loggerTaskEx, task_name,
+                                        LOGGER_STACK_SIZE, NULL,
+                                        priority, NULL );
+        if (!status)
+                panic(PANIC_CAUSE_TASK_CREATE);
 }
 
 static int init_sample_ring_buffer(LoggerConfig *loggerConfig)
@@ -177,7 +184,7 @@ void loggerTaskEx(void *params)
                         buffer_size = init_sample_ring_buffer(loggerConfig);
                         if (!buffer_size) {
                                 pr_error("Failed to allocate any buffers!\r\n");
-                                LED_enable(3);
+                                led_enable(LED_ERROR);
 
                                 /*
                                  * Do this to ensure the log message gets out
@@ -187,7 +194,7 @@ void loggerTaskEx(void *params)
                                 continue;
                         }
 
-                        LED_disable(3);
+                        led_disable(LED_ERROR);
 
                         updateSampleRates(loggerConfig, &loggingSampleRate,
                                           &telemetrySampleRate,
@@ -208,20 +215,24 @@ void loggerTaskEx(void *params)
                 if (g_loggingShouldRun && !is_logging) {
                         logging_started();
                         const LoggerMessage logStartMsg = getLogStartMessage();
+#if SDCARD_SUPPORT
                         queue_logfile_record(&logStartMsg);
+#endif
                         queueTelemetryRecord(&logStartMsg);
                 }
 
                 if (!g_loggingShouldRun && is_logging) {
                         logging_stopped();
                         const LoggerMessage logStopMsg = getLogStopMessage();
+#if SDCARD_SUPPORT
                         queue_logfile_record(&logStopMsg);
+#endif
                         queueTelemetryRecord(&logStopMsg);
                         logging_set_status(LOGGING_STATUS_IDLE);
                 }
 
                 /* Prepare a Sample */
-                struct sample *sample = &g_sample_buffer[bufferIndex];
+                struct sample *sample = g_sample_buffer + bufferIndex;
 
                 /* Check if we need to actually populate the buffer. */
                 const int sampledRate = populate_sample_buffer(sample,
@@ -231,13 +242,14 @@ void loggerTaskEx(void *params)
 
                 /* If here, create the LoggerMessage to send with the sample */
                 const LoggerMessage msg = create_logger_message(
-                        LoggerMessageType_Sample, sample);
+                        LoggerMessageType_Sample, currentTicks, sample);
 
                 /*
                  * We only log to file if the user has manually pushed the
                  * logging button.
                  */
-                if (is_logging && sampledRate >= loggingSampleRate) {
+#if SDCARD_SUPPORT
+                if (is_logging && should_sample(currentTicks, loggingSampleRate)) {
                         /* XXX Move this to file writer? */
                         const portBASE_TYPE res = queue_logfile_record(&msg);
                         const logging_status_t ls = pdTRUE == res ?
@@ -245,13 +257,21 @@ void loggerTaskEx(void *params)
                                 LOGGING_STATUS_ERROR_WRITING;
                         logging_set_status(ls);
                 }
+#endif
 
-                /* send the sample on to the telemetry task(s) */
-                if (sampledRate >= telemetrySampleRate ||
-                    currentTicks % telemetrySampleRate == 0)
-                        queueTelemetryRecord(&msg);
+                /*
+                 * The task is responsible for determining if it should use the
+                 * sample or if it should drop it due to rate limitations.
+                 */
+                queueTelemetryRecord(&msg);
+
+
+                /* Process callback handlers for the samples */
+                logger_sample_process_callbacks(currentTicks, sample);
 
                 ++bufferIndex;
                 bufferIndex %= buffer_size;
         }
+
+        panic(PANIC_CAUSE_UNREACHABLE);
 }

@@ -22,12 +22,13 @@
 #ifndef LOGGERAPI_TEST_H_
 #define LOGGERAPI_TEST_H_
 
-#include <cppunit/extensions/HelperMacros.h>
-
+#include "channel_config.h"
+#include "json/elements.h"
 #include "json/reader.h"
 #include "json/writer.h"
-#include "json/elements.h"
 #include "loggerConfig.h"
+#include <cppunit/extensions/HelperMacros.h>
+#include <stdbool.h>
 
 using namespace json;
 using std::string;
@@ -38,7 +39,6 @@ using std::istreambuf_iterator;
 class LoggerApiTest : public CppUnit::TestFixture
 {
     CPPUNIT_TEST_SUITE( LoggerApiTest );
-    CPPUNIT_TEST( testUnescapeTextField );
     CPPUNIT_TEST( testSetConnectivityCfg );
     CPPUNIT_TEST( testGetConnectivityCfg );
     CPPUNIT_TEST( testGetAnalogCfg );
@@ -78,6 +78,19 @@ class LoggerApiTest : public CppUnit::TestFixture
     CPPUNIT_TEST( testGetVersion);
     CPPUNIT_TEST( testGetStatus);
     CPPUNIT_TEST( testGetCapabilities);
+    CPPUNIT_TEST( testSetWifiCfg );
+    CPPUNIT_TEST( testSetWifiCfgApBadChannel );
+    CPPUNIT_TEST( testSetWifiCfgApBadEncryption );
+    CPPUNIT_TEST( testGetWifiCfgDefault );
+    CPPUNIT_TEST( testSetGetWifiCfg );
+    CPPUNIT_TEST( setActiveTrack );
+    CPPUNIT_TEST( setActiveTrackSectors );
+    CPPUNIT_TEST( setActiveTrackInvalid );
+    CPPUNIT_TEST( setActiveTrackRadiusMeters );
+    CPPUNIT_TEST( setActiveTrackRadiusDegrees );
+    CPPUNIT_TEST( testGetAutoLoggerCfgDefault );
+    CPPUNIT_TEST( testSetAutoLoggerCfg );
+
     CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -85,13 +98,17 @@ public:
     int findAndReplace(string & source, const string find, const string replace);
     string readFile(string filename);
     void setUp();
-    void tearDown();
 
-    void stringToJson(string buffer, Object &json);
+    void setActiveTrack();
+    void setActiveTrackSectors();
+    void setActiveTrackInvalid();
+    void setActiveTrackRadiusMeters();
+    void setActiveTrackRadiusDegrees();
+
+    void stringToJson(const char* buffer, Object &json);
     char * processApiGeneric(string filename);
 
     void assertGenericResponse(char *buffer, const char *messageName, int responseCode);
-    void testUnescapeTextField();
     void testSampleData1();
     void testSampleData2();
     void testHeartBeat();
@@ -133,6 +150,13 @@ public:
     void testGetVersion();
     void testGetStatus();
     void testGetCapabilities();
+    void testSetWifiCfg();
+    void testSetWifiCfgApBadChannel();
+    void testSetWifiCfgApBadEncryption();
+    void testGetWifiCfgDefault();
+    void testSetGetWifiCfg();
+    void testGetAutoLoggerCfgDefault();
+    void testSetAutoLoggerCfg();
 
 private:
     void testSetScriptFile(string filename);
@@ -152,7 +176,10 @@ private:
     void testGetTimerConfigFile(string filename, int index);
     void testSetTimerConfigFile(string filename);
     void testGetGpsConfigFile(string filename);
-    void testSetGpsConfigFile(string filename, unsigned char channelsEnabled, unsigned short sampleRate);
+    void testSetGpsConfigFile(string filename,
+			      unsigned char channelsEnabled,
+			      unsigned short sampleRate,
+			      const bool metric);
     void testAddTrackDbFile(string filename);
     void testGetTrackDbFile(string filename, string addedFilename);
     void testSetLapConfigFile(string filename);

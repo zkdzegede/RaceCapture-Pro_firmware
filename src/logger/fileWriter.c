@@ -1,7 +1,7 @@
 /*
  * Race Capture Firmware
  *
- * Copyright (C) 2015 Autosport Labs
+ * Copyright (C) 2016 Autosport Labs
  *
  * This file is part of the Race Capture firmware suite
  *
@@ -20,74 +20,80 @@
  */
 
 
-
-
-#include "LED.h"
 #include "fileWriter.h"
+#include "led.h"
 #include "loggerHardware.h"
+#include "macros.h"
 #include "mem_mang.h"
-#include "mod_string.h"
 #include "modp_numtoa.h"
 #include "printk.h"
 #include "ring_buffer.h"
 #include "sampleRecord.h"
 #include "sdcard.h"
-#include "semphr.h"
 #include "task.h"
 #include "taskUtil.h"
 #include "test.h"
-
 #include <stdbool.h>
+#include <string.h>
+#include <string.h>
 
 #define ERROR_SLEEP_DELAY_MS	500
-#define FILE_BUFFER_SIZE	256
-#define FILE_WRITER_STACK_SIZE	256
+#define FILE_BUFFER_SIZE	1024
+#define FILE_WRITER_STACK_SIZE	512
+#define LOG_PFX	"[fileWriter] "
 #define MAX_LOG_FILE_INDEX	99999
-#define SAMPLE_RECORD_QUEUE_SIZE	20
 #define WRITE_FAIL	EOF
 
 static FIL *g_logfile;
 static xQueueHandle g_LoggerMessage_queue;
-static struct ring_buff file_buff;
+static struct ring_buff *file_buff;
 
 static void error_led(const bool on)
 {
-        on ? LED_enable(3) : LED_disable(3);
+        led_set(LED_ERROR, on);
 }
 
 static FRESULT flush_file_buffer(void)
 {
-        FRESULT res = FR_OK;
-        char tmp[32];
+        while(true) {
+		size_t available = 0;
+		const void* buff =
+			ring_buffer_dma_read_init(file_buff, &available);
 
-        pr_trace(_RCP_BASE_FILE_ "Flushing file buffer\r\n");
-        size_t chars = get_used(&file_buff);
-        while(0 < chars) {
-                if (chars > sizeof(tmp))
-                        chars = sizeof(tmp);
+		/* If nothing to write, we are done. */
+		if (!available)
+			return FR_OK;
 
-                pr_trace_int_msg(_RCP_BASE_FILE_ "Chars is ", chars);
-                get_data(&file_buff, &tmp, chars);
-                if (g_logfile->fs) {
-                        unsigned int bw;
-                        res = f_write(g_logfile, &tmp, chars, &bw);
-                        error_led(FR_OK != res);
-                }
+		unsigned int written = 0;
+		const FRESULT res =
+			f_write(g_logfile, buff, available, &written);
 
-                chars = get_used(&file_buff);
+		ring_buffer_dma_read_fini(file_buff, written);
+		if (FR_OK != res) {
+			pr_debug_int_msg("[FileWriter] f_write failed "
+					 "with status: ", (int) res);
+			error_led(true);
+			return res;
+		}
         }
-
-        pr_trace(_RCP_BASE_FILE_ "Flushing file buffer DONE\r\n");
-        return res;
 }
 
 static FRESULT append_file_buffer(const char *str)
 {
-        FRESULT res = FR_OK;
+        if (!str)
+                return FR_OK;
 
-        while(str && *str) {
-                str = put_string(&file_buff, str);
-                if (str)
+        FRESULT res = FR_OK;
+        size_t len = strlen(str);
+        while(len) {
+                const size_t write_len =
+                        MIN(ring_buffer_bytes_free(file_buff), len);
+                ring_buffer_put(file_buff, str, write_len);
+                str += write_len;
+                len -= write_len;
+
+                /* If not at end of string, more to write.  Flush */
+                if (len > 0)
                         res = flush_file_buffer();
         }
 
@@ -110,27 +116,31 @@ static void appendInt(int num)
 {
         char buf[12];
         modp_itoa10(num, buf);
+        buf[11] = '\0';
         append_file_buffer(buf);
 }
 
 static void appendLongLong(long long num)
 {
-        char buf[21];
+        char buf[24];
         modp_ltoa10(num, buf);
+        buf[23] = '\0';
         append_file_buffer(buf);
 }
 
 static void appendDouble(double num, int precision)
 {
-        char buf[30];
+        char buf[32];
         modp_dtoa(num, buf, precision);
+        buf[31] = '\0';
         append_file_buffer(buf);
 }
 
 static void appendFloat(float num, int precision)
 {
-        char buf[11];
+        char buf[16];
         modp_ftoa(num, buf, precision);
+        buf[15] = '\0';
         append_file_buffer(buf);
 }
 
@@ -257,12 +267,12 @@ static void close_log_file(struct logging_status *ls)
 
 static void logging_led_toggle(void)
 {
-        LED_toggle(2);
+        led_toggle(LED_LOGGER);
 }
 
 static void logging_led_off(void)
 {
-        LED_disable(2);
+        led_disable(LED_LOGGER);
 }
 
 static void open_log_file(struct logging_status *ls)
@@ -288,6 +298,7 @@ static void open_log_file(struct logging_status *ls)
 
         pr_info_str_msg(_RCP_BASE_FILE_ "Opened " , ls->name);
         ls->flush_tick = xTaskGetTickCount();
+	ls->last_sample_tick = 0;
 }
 
 TESTABLE_STATIC int logging_start(struct logging_status *ls)
@@ -318,7 +329,20 @@ TESTABLE_STATIC int logging_stop(struct logging_status *ls)
 
 static int write_samples(struct logging_status *ls, const LoggerMessage *msg)
 {
-        int rc = 0;
+	/* Ensure the LoggerMessage we are writing is valid */
+	if (!is_sample_data_valid(msg)) {
+		pr_warning(LOG_PFX "Sample invalid.  Skipping...\r\n");
+		return 0;
+	}
+
+	/* Ensure that we don't write a sample that is older than previous */
+	if (msg->ticks < ls->last_sample_tick) {
+		pr_debug(LOG_PFX "Sample is too old.  Skipping...\r\n");
+		return 0;
+	}
+	ls->last_sample_tick = msg->ticks;
+
+	int rc = 0;
 
         /* If we haven't written to this file yet, start with the headers */
         if (0 == ls->rows_written) {
@@ -448,6 +472,7 @@ static void fileWriterTask(void *params)
 void startFileWriterTask(int priority)
 {
         g_LoggerMessage_queue = create_logger_message_queue();
+
         if (NULL == g_LoggerMessage_queue) {
                 pr_error(_RCP_BASE_FILE_ "LoggerMessage Queue is null!\r\n");
                 return;
@@ -460,12 +485,14 @@ void startFileWriterTask(int priority)
         }
         memset(g_logfile, 0, sizeof(FIL));
 
-        const size_t size = create_ring_buffer(&file_buff, FILE_BUFFER_SIZE);
-        if (FILE_BUFFER_SIZE != size + 1) {
+        file_buff = ring_buffer_create(FILE_BUFFER_SIZE);
+        if (!file_buff) {
                 pr_error(_RCP_BASE_FILE_ "Failed to alloc ring buffer.\r\n");
                 return;
         }
 
-        xTaskCreate( fileWriterTask,( signed portCHAR * ) "fileWriter",
-                     FILE_WRITER_STACK_SIZE, NULL, priority, NULL );
+        /* Make all task names 16 chars including NULL char */
+        static const signed portCHAR task_name[] = "File Task       ";
+        xTaskCreate(fileWriterTask, task_name, FILE_WRITER_STACK_SIZE,
+                    NULL, priority, NULL );
 }

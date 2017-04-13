@@ -19,34 +19,39 @@
  * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "loggerApi_test.h"
 #include "FreeRTOS.h"
-#include "constants.h"
 #include "api.h"
-#include "loggerApi.h"
-#include "mock_serial.h"
-#include "imu.h"
-#include "cpu.h"
-#include "loggerConfig.h"
-#include "jsmn.h"
-#include "mod_string.h"
-#include "modp_atonum.h"
-#include "memory_mock.h"
-#include "printk.h"
-#include <string>
-#include <fstream>
-#include <streambuf>
-#include "predictive_timer_2.h"
-#include "luaScript.h"
-#include "rcp_cpp_unit.hh"
-#include "cellModem.h"
-#include "sim900.h"
+#include "auto_logger.h"
 #include "bluetooth.h"
-#include "logger.h"
+#include "cellular.h"
+#include "channel_config.h"
+#include "constants.h"
+#include "cpu.h"
+#include "imu.h"
+#include "jsmn.h"
 #include "lap_stats.h"
 #include "launch_control.h"
+#include "logger.h"
+#include "loggerApi.h"
+#include "loggerApi_test.h"
+#include "loggerConfig.h"
+#include "luaScript.h"
+#include "memory_mock.h"
+#include "mock_serial.h"
+#include "predictive_timer_2.h"
+#include "printk.h"
+#include "rcp_cpp_unit.hh"
+#include "sim900.h"
 #include "task.h"
 #include "task_testing.h"
+#include "units.h"
+#include "versionInfo.h"
+#include <fstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <streambuf>
+#include <string.h>
+#include <string>
 
 #define JSON_TOKENS 10000
 #define FILE_PREFIX string("json_api_files/")
@@ -56,25 +61,27 @@ CPPUNIT_TEST_SUITE_REGISTRATION( LoggerApiTest );
 
 
 char * LoggerApiTest::processApiGeneric(string filename){
-	Serial *serial = getMockSerial();
 	string json = readFile(filename);
 	mock_resetTxBuffer();
 	process_api(getMockSerial(),(char *)json.c_str(), json.size());
-	char *txBuffer = mock_getTxBuffer();
-	return txBuffer;
+	return mock_getTxBuffer();
 }
 
 
-void LoggerApiTest::stringToJson(string buffer, Object &json){
+void LoggerApiTest::stringToJson(const char* buffer, Object &json){
 	std::stringstream stream;
-	for (size_t i = 0; i < buffer.size(); i++){
-		stream.put(buffer[i]);
-	}
-	try{
-			Reader::Read(json, stream);
-	}
-	catch (json::Exception &e){
-			throw ("Could not parse json string");
+
+	for (const char *ptr = buffer; *ptr; ++ptr)
+		stream.put(*ptr);
+
+	try {
+                Reader::Read(json, stream);
+	} catch (json::Exception &e){
+                printf("\nParsing of the following JSON failed\n===\n");
+                printf("%s", buffer);
+                printf("\n===\n");
+                printf("With message \"%s\"\n", e.what());
+                throw ("Could not parse json string");
 	}
 }
 
@@ -100,7 +107,7 @@ void LoggerApiTest::assertGenericResponse(char *buffer, const char * messageName
 					CPPUNIT_FAIL("assertGenericResponse: rc element name does not match");
 				}
 
-                                const int actual_response_code = modp_atoi(tok_rcVal->data);
+                                const int actual_response_code = atoi(tok_rcVal->data);
                                 if (responseCode != actual_response_code) {
                                         char buff[256];
                                         sprintf(buff, "Msg \"%s\" failed.  Expected %d, got %d",
@@ -168,42 +175,7 @@ void LoggerApiTest::setUp()
 	setupMockSerial();
 	imu_init(config);
 	resetPredictiveTimer();
-        lapStats_init();
-}
-
-
-void LoggerApiTest::tearDown()
-{
-}
-
-void LoggerApiTest::testUnescapeTextField(){
-	{
-		char test[] =  "test1";
-		unescapeTextField(test);
-		CPPUNIT_ASSERT_EQUAL(string("test1"), string(test));
-	}
-
-	{
-		char test[] =  "test\\n1";
-		unescapeTextField(test);
-		CPPUNIT_ASSERT_EQUAL(string("test\n1"), string(test));
-	}
-	{
-		char test[] =  "test\\r1";
-		unescapeTextField(test);
-		CPPUNIT_ASSERT_EQUAL(string("test\r1"), string(test));
-	}
-	{
-		char test[] =  "test\\\\1";
-		unescapeTextField(test);
-		CPPUNIT_ASSERT_EQUAL(string("test\\1"), string(test));
-	}
-	{
-		char test[] =  "test\\\"1";
-		unescapeTextField(test);
-		CPPUNIT_ASSERT_EQUAL(string("test\"1"), string(test));
-	}
-
+        lapstats_config_changed();
 }
 
 void LoggerApiTest::populateChannelConfig(ChannelConfig *cfg, const int i, const int splRt) {
@@ -251,7 +223,7 @@ void LoggerApiTest::testGetMultipleAnalogCfg(){
       }
    }
 
-   char * response = processApiGeneric("getAnalogCfg3.json");
+   const char *response = processApiGeneric("getAnalogCfg3.json");
 
    Object json;
    stringToJson(response, json);
@@ -307,8 +279,8 @@ void LoggerApiTest::testGetAnalogConfigFile(string filename, int index){
 	for (int x = 0; x < ANALOG_SCALING_BINS; iv+=1.1,x++){
 		analogCfg->scalingMap.scaledValues[x] = iv;
 	}
-	char * response = processApiGeneric(filename);
 
+        const char *response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
 
@@ -344,7 +316,7 @@ void LoggerApiTest::testGetAnalogCfg(){
 
 void LoggerApiTest::testSetAnalogConfigFile(string filename){
 
-	Serial *serial = getMockSerial();
+	struct Serial *serial = getMockSerial();
 	string json = readFile(filename);
 	mock_resetTxBuffer();
 	process_api(getMockSerial(),(char *)json.c_str(), json.size());
@@ -397,13 +369,12 @@ void LoggerApiTest::testGetImuConfigFile(string filename, int index){
 
         populateChannelConfig(&imuCfg->cfg, index, 100);
 
-	imuCfg->mode = 1;
-	imuCfg->physicalChannel = 3;
+	imuCfg->mode = IMU_MODE_NORMAL;
+	imuCfg->physicalChannel = IMU_CHANNEL_YAW;
 	imuCfg->zeroValue = 1234;
 	imuCfg->filterAlpha = 0.7F;
 
-	char * response = processApiGeneric(filename);
-
+	const char * response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
 
@@ -426,7 +397,7 @@ void LoggerApiTest::testGetImuCfg(){
 }
 
 void LoggerApiTest::testSetImuConfigFile(string filename){
-	Serial *serial = getMockSerial();
+	struct Serial *serial = getMockSerial();
 	string json = readFile(filename);
 	mock_resetTxBuffer();
 	process_api(getMockSerial(),(char *)json.c_str(), json.size());
@@ -460,8 +431,7 @@ void LoggerApiTest::testSetConnectivityCfgFile(string filename){
 	LoggerConfig *c = getWorkingLoggerConfig();
 	ConnectivityConfig *connCfg = &c->ConnectivityConfigs;
 
-	processApiGeneric(filename);
-	char *txBuffer = mock_getTxBuffer();
+	char *txBuffer = processApiGeneric(filename);
 	assertGenericResponse(txBuffer, "setConnCfg", API_SUCCESS);
 
 	CPPUNIT_ASSERT_EQUAL(1, (int)connCfg->cellularConfig.cellEnabled);
@@ -470,8 +440,8 @@ void LoggerApiTest::testSetConnectivityCfgFile(string filename){
 	CPPUNIT_ASSERT_EQUAL(string("blorg"), string(connCfg->cellularConfig.apnPass));
 
 	CPPUNIT_ASSERT_EQUAL(1, (int)connCfg->bluetoothConfig.btEnabled);
-	CPPUNIT_ASSERT_EQUAL(string("myRacecar"), string(connCfg->bluetoothConfig.deviceName));
-	CPPUNIT_ASSERT_EQUAL(string("3311"), string(connCfg->bluetoothConfig.passcode));
+	CPPUNIT_ASSERT_EQUAL(string("myRacecar"), string(connCfg->bluetoothConfig.new_name));
+	CPPUNIT_ASSERT_EQUAL(string("3311"), string(connCfg->bluetoothConfig.new_pin));
 
 	CPPUNIT_ASSERT_EQUAL(1, (int)connCfg->telemetryConfig.backgroundStreaming);
 	CPPUNIT_ASSERT_EQUAL(string("xyz123"), string(connCfg->telemetryConfig.telemetryDeviceId));
@@ -486,22 +456,22 @@ void LoggerApiTest::testGetConnectivityCfg(){
 	LoggerConfig *c = getWorkingLoggerConfig();
 	ConnectivityConfig *connCfg = &c->ConnectivityConfigs;
 
-	strcpy(connCfg->bluetoothConfig.deviceName, "btDevName");
-	strcpy(connCfg->bluetoothConfig.passcode, "6543");
+	strcpy(connCfg->bluetoothConfig.new_name, "btDevName");
+	strcpy(connCfg->bluetoothConfig.new_pin, "6543");
 
 	strcpy(connCfg->cellularConfig.apnHost, "apnHost");
 	strcpy(connCfg->cellularConfig.apnUser, "apnUser");
 	strcpy(connCfg->cellularConfig.apnPass, "apnPass");
 
-	char *response = processApiGeneric("getConnCfg1.json");
+	const char *response = processApiGeneric("getConnCfg1.json");
 	Object json;
 	stringToJson(response, json);
 
 	Object &connJson = json["connCfg"];
 
 	CPPUNIT_ASSERT_EQUAL((int)(connCfg->bluetoothConfig.btEnabled), (int)(Number)connJson["btCfg"]["btEn"]);
-	CPPUNIT_ASSERT_EQUAL(string(connCfg->bluetoothConfig.deviceName), string((String)connJson["btCfg"]["name"]));
-	CPPUNIT_ASSERT_EQUAL(string(connCfg->bluetoothConfig.passcode), string((String)connJson["btCfg"]["pass"]));
+	CPPUNIT_ASSERT_EQUAL(string(""), string((String)connJson["btCfg"]["name"]));
+	CPPUNIT_ASSERT_EQUAL(string(""), string((String)connJson["btCfg"]["pass"]));
 
 	CPPUNIT_ASSERT_EQUAL((int)(connCfg->cellularConfig.cellEnabled), (int)(Number)connJson["cellCfg"]["cellEn"]);
 	CPPUNIT_ASSERT_EQUAL(string(connCfg->cellularConfig.apnHost), string((String)connJson["cellCfg"]["apnHost"]));
@@ -524,8 +494,7 @@ void LoggerApiTest::testGetPwmConfigFile(string filename, int index){
 	pwmCfg->startupDutyCycle = 55;
 	pwmCfg->startupPeriod = 321;
 
-	char * response = processApiGeneric(filename);
-
+	const char *response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
 
@@ -549,7 +518,7 @@ void LoggerApiTest::testGetPwmCfg(){
 
 
 void LoggerApiTest::testSetPwmConfigFile(string filename){
-	Serial *serial = getMockSerial();
+	struct Serial *serial = getMockSerial();
 	string json = readFile(filename);
 	mock_resetTxBuffer();
 	process_api(getMockSerial(),(char *)json.c_str(), json.size());
@@ -586,8 +555,7 @@ void LoggerApiTest::testGetGpioConfigFile(string filename, int index){
         populateChannelConfig(&gpioCfg->cfg, index, 100);
 	gpioCfg->mode = 1;
 
-	char * response = processApiGeneric(filename);
-
+	const char *response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
 
@@ -606,7 +574,7 @@ void LoggerApiTest::testGetGpioCfg(){
 }
 
 void LoggerApiTest::testSetGpioConfigFile(string filename){
-	Serial *serial = getMockSerial();
+	struct Serial *serial = getMockSerial();
 	string json = readFile(filename);
 	mock_resetTxBuffer();
 	process_api(getMockSerial(),(char *)json.c_str(), json.size());
@@ -639,14 +607,12 @@ void LoggerApiTest::testGetTimerConfigFile(string filename, int index){
 
         populateChannelConfig(&timerCfg->cfg, index, 100);
 
-	timerCfg->slowTimerEnabled = 1;
 	timerCfg->mode = 2;
 	timerCfg->filterAlpha = 0.5F;
-	timerCfg->pulsePerRevolution = 3;
+	timerCfg->pulsePerRevolution = 3.1;
 	timerCfg->timerSpeed = 2;
 
-	char * response = processApiGeneric(filename);
-
+	const char *response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
 
@@ -657,10 +623,11 @@ void LoggerApiTest::testGetTimerConfigFile(string filename, int index){
 	Object &timerJson = json["timerCfg"][iStr];
 
         checkChannelConfig(timerJson, index, iStr, 100);
-	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)timerJson["st"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)timerJson["st"]); /* DEPRECATED */
 	CPPUNIT_ASSERT_EQUAL(2, (int)(Number)timerJson["mode"]);
 	CPPUNIT_ASSERT_EQUAL(0.5F, (float)(Number)timerJson["alpha"]);
-	CPPUNIT_ASSERT_EQUAL(3, (int)(Number)timerJson["ppr"]);
+	CPPUNIT_ASSERT_EQUAL(timerCfg->pulsePerRevolution,
+			     (float)(Number)timerJson["ppr"]);
 	CPPUNIT_ASSERT_EQUAL(2, (int)(Number)timerJson["speed"]);
 }
 
@@ -669,7 +636,7 @@ void LoggerApiTest::testGetTimerCfg(){
 }
 
 void LoggerApiTest::testSetTimerConfigFile(string filename){
-	Serial *serial = getMockSerial();
+	struct Serial *serial = getMockSerial();
 	string json = readFile(filename);
 	mock_resetTxBuffer();
 	process_api(getMockSerial(),(char *)json.c_str(), json.size());
@@ -685,11 +652,12 @@ void LoggerApiTest::testSetTimerConfigFile(string filename){
 	CPPUNIT_ASSERT_EQUAL(10, decodeSampleRate(cfg->sampleRate));
 	CPPUNIT_ASSERT_EQUAL(1, (int)cfg->precision);
 
-	CPPUNIT_ASSERT_EQUAL(1, (int)timerCfg->slowTimerEnabled);
 	CPPUNIT_ASSERT_EQUAL(1, (int)timerCfg->mode);
 	CPPUNIT_ASSERT_EQUAL(0.5F, timerCfg->filterAlpha);
-	CPPUNIT_ASSERT_EQUAL(4, (int)timerCfg->pulsePerRevolution);
+	CPPUNIT_ASSERT_EQUAL((float) 4, timerCfg->pulsePerRevolution);
 	CPPUNIT_ASSERT_EQUAL(2, (int)timerCfg->timerSpeed);
+        CPPUNIT_ASSERT_EQUAL(-2, (int)timerCfg->filter_period_us);
+        CPPUNIT_ASSERT_EQUAL(TIMER_EDGE_RISING, timerCfg->edge);
 
 	char *txBuffer = mock_getTxBuffer();
 	assertGenericResponse(txBuffer, "setTimerCfg", API_SUCCESS);
@@ -720,7 +688,9 @@ void LoggerApiTest::testGetMeta(){
 void LoggerApiTest::testSampleData1() {
 	string requestJson1 = readFile("sampleData1.json");
 	string expectedResponseJson1 = readFile("sampleData_response1.json");
-
+        LoggerConfig *c = getWorkingLoggerConfig();
+        CPPUNIT_ASSERT_EQUAL((unsigned short) SAMPLE_DISABLED,
+                             c->TimerConfigs[0].cfg.sampleRate);
 	CPPUNIT_ASSERT_EQUAL(expectedResponseJson1,
                         getSampleResponse(requestJson1));
 }
@@ -785,13 +755,19 @@ void LoggerApiTest::testFlashConfig(){
 	testFlashConfigFile("flashCfg.json");
 }
 
-void LoggerApiTest::testChannelConfig(ChannelConfig *cfg, string expNm, string expUt, unsigned short sr) {
-    CPPUNIT_ASSERT_EQUAL(expNm, string(cfg->label));
-    CPPUNIT_ASSERT_EQUAL(expUt, string(cfg->units));
-    CPPUNIT_ASSERT_EQUAL((int) sr, decodeSampleRate(cfg->sampleRate));
+void LoggerApiTest::testChannelConfig(ChannelConfig *cfg, string expNm,
+				      string expUt, unsigned short sr)
+{
+	CPPUNIT_ASSERT_EQUAL(expNm, string(cfg->label));
+	CPPUNIT_ASSERT_EQUAL(expUt, string(cfg->units));
+	CPPUNIT_ASSERT_EQUAL((int) sr, decodeSampleRate(cfg->sampleRate));
 }
 
-void LoggerApiTest::testSetGpsConfigFile(string filename, unsigned char channelsEnabled, unsigned short sampleRate){
+void LoggerApiTest::testSetGpsConfigFile(string filename,
+					 unsigned char channelsEnabled,
+					 unsigned short sampleRate,
+					 const bool metric)
+{
 	processApiGeneric(filename);
 	char *txBuffer = mock_getTxBuffer();
 
@@ -801,11 +777,21 @@ void LoggerApiTest::testSetGpsConfigFile(string filename, unsigned char channels
         if (channelsEnabled == 0)
            sampleRate = 0;
 
-        testChannelConfig(&gpsCfg->latitude, string("Latitude"), string("Degrees"), sampleRate);
+	enum unit speed_unit = metric ?
+		UNIT_SPEED_KILOMETERS_HOUR : UNIT_SPEED_MILES_HOUR;
+	enum unit distance_unit = metric ?
+		UNIT_LENGTH_KILOMETERS : UNIT_LENGTH_MILES;
+	enum unit altitude_unit = metric ?
+		UNIT_LENGTH_METERS : UNIT_LENGTH_FEET;
+
+        testChannelConfig(&gpsCfg->speed, string("Speed"),
+			  string(units_get_label(speed_unit)), sampleRate);
+        testChannelConfig(&gpsCfg->distance, string("Distance"),
+			  string(units_get_label(distance_unit)), sampleRate);
+        testChannelConfig(&gpsCfg->altitude, string("Altitude"),
+			  string(units_get_label(altitude_unit)), sampleRate);
+	testChannelConfig(&gpsCfg->latitude, string("Latitude"), string("Degrees"), sampleRate);
         testChannelConfig(&gpsCfg->longitude, string("Longitude"), string("Degrees"), sampleRate);
-        testChannelConfig(&gpsCfg->speed, string("Speed"), string("MPH"), sampleRate);
-        testChannelConfig(&gpsCfg->distance, string("Distance"), string("Miles"), sampleRate);
-        testChannelConfig(&gpsCfg->altitude, string("Altitude"), string("Feet"), sampleRate);
         testChannelConfig(&gpsCfg->satellites, string("GPSSats"), string(""), sampleRate);
         testChannelConfig(&gpsCfg->quality, string("GPSQual"), string(""), sampleRate);
         testChannelConfig(&gpsCfg->DOP, string("GPSDOP"), string(""), sampleRate);
@@ -814,42 +800,53 @@ void LoggerApiTest::testSetGpsConfigFile(string filename, unsigned char channels
 }
 
 void LoggerApiTest::testSetGpsCfg(){
-	testSetGpsConfigFile("setGpsCfg1.json", 1, 100);
-	testSetGpsConfigFile("setGpsCfg2.json", 0, 50);
+	testSetGpsConfigFile("setGpsCfg1.json", 1, 100, false);
+	testSetGpsConfigFile("setGpsCfg2.json", 0, 50, false);
+	testSetGpsConfigFile("setGpsCfg3.json", 0, 50, true);
 }
 
-void LoggerApiTest::testGetGpsConfigFile(string filename){
-   LoggerConfig *c = getWorkingLoggerConfig();
-   GPSConfig *gpsCfg = &c->GPSConfigs;
+void LoggerApiTest::testGetGpsConfigFile(string filename)
+{
+	LoggerConfig *c = getWorkingLoggerConfig();
+	GPSConfig *gpsCfg = &c->GPSConfigs;
 
-   populateChannelConfig(&gpsCfg->latitude, 0, 100);
-   populateChannelConfig(&gpsCfg->longitude, 0, 100);
-   populateChannelConfig(&gpsCfg->speed, 0, 100);
-   populateChannelConfig(&gpsCfg->distance, 0, 100);
-   populateChannelConfig(&gpsCfg->altitude, 0, 100);
-   populateChannelConfig(&gpsCfg->satellites, 0, 100);
-   populateChannelConfig(&gpsCfg->quality, 0, 100);
-   populateChannelConfig(&gpsCfg->DOP, 0, 100);
+	populateChannelConfig(&gpsCfg->latitude, 0, 100);
+	populateChannelConfig(&gpsCfg->longitude, 0, 100);
+	populateChannelConfig(&gpsCfg->speed, 1, 100);
+	populateChannelConfig(&gpsCfg->distance, 2, 100);
+	populateChannelConfig(&gpsCfg->altitude, 3, 100);
+	populateChannelConfig(&gpsCfg->satellites, 0, 100);
+	populateChannelConfig(&gpsCfg->quality, 0, 100);
+	populateChannelConfig(&gpsCfg->DOP, 0, 100);
 
-   char * response = processApiGeneric(filename);
+	const char *response = processApiGeneric(filename);
+	Object json;
+	stringToJson(response, json);
 
-   Object json;
-   stringToJson(response, json);
+	Object &gpsCfgJson = json["gpsCfg"];
 
-   Object &gpsCfgJson = json["gpsCfg"];
+	CPPUNIT_ASSERT_EQUAL((int)100, (int)(Number)gpsCfgJson["sr"]);
 
-   CPPUNIT_ASSERT_EQUAL((int)100, (int)(Number)gpsCfgJson["sr"]);
+	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["pos"]);
+	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["speed"]);
+	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["dist"]);
+	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["alt"]);
+	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["sats"]);
+	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["qual"]);
+	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["dop"]);
 
-   CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["pos"]);
-   CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["speed"]);
-   CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["dist"]);
-   CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["alt"]);
-   CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["sats"]);
-   CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["qual"]);
-   CPPUNIT_ASSERT_EQUAL(1, (int)(Number)gpsCfgJson["dop"]);
+	Object &unitsJson = gpsCfgJson["units"];
+	/* Special values here per pupulateChannelConfig above */
+	CPPUNIT_ASSERT_EQUAL(string("unit_3"),
+			     (string) (String) unitsJson["alt"]);
+	CPPUNIT_ASSERT_EQUAL(string("unit_2"),
+			     (string) (String) unitsJson["dist"]);
+	CPPUNIT_ASSERT_EQUAL(string("unit_1"),
+			     (string) (String) unitsJson["speed"]);
 }
 
-void LoggerApiTest::testGetGpsCfg(){
+void LoggerApiTest::testGetGpsCfg()
+{
 	testGetGpsConfigFile("getGpsCfg1.json");
 }
 
@@ -884,8 +881,7 @@ void LoggerApiTest::testGetLapConfigFile(string filename){
         populateChannelConfig(&cfg->sectorTimeCfg, 4, 50);
         populateChannelConfig(&cfg->predTimeCfg, 5, 50);
 
-	char * response = processApiGeneric(filename);
-
+	const char *response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
 
@@ -959,8 +955,7 @@ void LoggerApiTest::testGetTrackCfgCircuit(){
 	cfg->track.track_type = TRACK_TYPE_CIRCUIT;
 	cfg->track.trackId = 1345;
 
-	char * response = processApiGeneric("getTrackCfg1.json");
-
+	const char *response = processApiGeneric("getTrackCfg1.json");
 	Object json;
 	stringToJson(response, json);
 
@@ -995,7 +990,7 @@ void LoggerApiTest::testAddTrackDbFile(string filename){
 
 	Object jsonCompare;
 	string compare = readFile(filename);
-	stringToJson(compare, jsonCompare);
+	stringToJson(compare.c_str(), jsonCompare);
 
 	int index = (int)(Number)jsonCompare["addTrackDb"]["index"];
 	const Track *track = tracks->tracks + index;
@@ -1053,7 +1048,7 @@ void LoggerApiTest::testGetTrackDbFile(string filename, string addedFilename){
 
 	Object jsonCompare;
 	string compare= readFile(addedFilename);
-	stringToJson(compare, jsonCompare);
+	stringToJson(compare.c_str(), jsonCompare);
 
 	CPPUNIT_ASSERT_EQUAL((int)(Number)jsonResponse["trackDb"]["size"], 1);
 	CPPUNIT_ASSERT_EQUAL((int)(Number)jsonResponse["trackDb"]["max"], MAX_TRACK_COUNT);
@@ -1094,10 +1089,11 @@ void LoggerApiTest::testGetCanCfgFile(string filename){
 	canConfig->enabled = 1;
 	canConfig->baud[0] = 1000000;
 	canConfig->baud[1] = 125000;
-	char * response = processApiGeneric(filename);
 
+	const char *response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
+
 	CPPUNIT_ASSERT_EQUAL(1, (int)(Number)json["canCfg"]["en"]);
 	CPPUNIT_ASSERT_EQUAL(1000000, (int)(Number)json["canCfg"]["baud"][0]);
 	CPPUNIT_ASSERT_EQUAL(125000, (int)(Number)json["canCfg"]["baud"][1]);
@@ -1142,8 +1138,7 @@ void LoggerApiTest::testGetObd2ConfigFile(string filename){
         populateChannelConfig(cfg2, 2, 50);
 	obd2Config->pids[1].pid = 0x06;
 
-	char * response = processApiGeneric(filename);
-
+	const char *response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
 
@@ -1247,8 +1242,7 @@ void LoggerApiTest::testGetScript(){
 }
 
 void LoggerApiTest::testGetScriptFile(string filename){
-	char * response = processApiGeneric(filename);
-
+	const char *response = processApiGeneric(filename);
 	Object json;
 	stringToJson(response, json);
 
@@ -1282,8 +1276,7 @@ void LoggerApiTest::testRunScriptFile(string filename){
 }
 
 void LoggerApiTest::testGetCapabilities(){
-	char * response = processApiGeneric("getCapabilities.json");
-
+	const char *response = processApiGeneric("getCapabilities.json");
 	Object json;
 	stringToJson(response, json);
 
@@ -1303,57 +1296,280 @@ void LoggerApiTest::testGetCapabilities(){
 }
 
 void LoggerApiTest::testGetVersion(){
-	char * response = processApiGeneric("getVersion1.json");
-
+	const char *response = processApiGeneric("getVersion1.json");
 	Object json;
 	stringToJson(response, json);
 
 	CPPUNIT_ASSERT_EQUAL(string(DEVICE_NAME), (string)(String)json["ver"]["name"]);
+	CPPUNIT_ASSERT_EQUAL(string(FRIENDLY_DEVICE_NAME),
+			     (string)(String)json["ver"]["fname"]);
 	CPPUNIT_ASSERT_EQUAL(MAJOR_REV, (int)(Number)json["ver"]["major"]);
 	CPPUNIT_ASSERT_EQUAL(MINOR_REV, (int)(Number)json["ver"]["minor"]);
 	CPPUNIT_ASSERT_EQUAL(BUGFIX_REV, (int)(Number)json["ver"]["bugfix"]);
-	CPPUNIT_ASSERT_EQUAL(string(cpu_get_serialnumber()), (string)(String)json["ver"]["serial"]);
+	CPPUNIT_ASSERT_EQUAL(string(cpu_get_serialnumber()),
+			     (string)(String)json["ver"]["serial"]);
+        CPPUNIT_ASSERT_EQUAL(string(version_full()),
+			     (string)(String)json["ver"]["git_info"]);
+
+	const enum release_type rt = version_get_release_type();
+        CPPUNIT_ASSERT_EQUAL(string(version_release_type_api_key(rt)),
+			     (string)(String)json["ver"]["release_type"]);
 }
 
 void LoggerApiTest::testGetStatus(){
 	set_ticks(3);
-        lc_reset();
-        lapStats_init();
+        lapstats_reset();
 
-    char * response = processApiGeneric("getStatus1.json");
+	const char *response = processApiGeneric("getStatus1.json");
+	Object json;
+	stringToJson(response, json);
 
-    Object json;
-    stringToJson(response, json);
+	CPPUNIT_ASSERT_EQUAL(string(FRIENDLY_DEVICE_NAME),
+			     (string)(String)json["status"]["system"]["model"]);
 
-    CPPUNIT_ASSERT_EQUAL(string(FRIENDLY_DEVICE_NAME), (string)(String)json["status"]["system"]["model"]);
-    CPPUNIT_ASSERT_EQUAL(MAJOR_REV, (int)(Number)json["status"]["system"]["ver_major"]);
-    CPPUNIT_ASSERT_EQUAL(MINOR_REV, (int)(Number)json["status"]["system"]["ver_minor"]);
-    CPPUNIT_ASSERT_EQUAL(BUGFIX_REV, (int)(Number)json["status"]["system"]["ver_bugfix"]);
-    CPPUNIT_ASSERT_EQUAL(string(cpu_get_serialnumber()), (string)(String)json["status"]["system"]["serial"]);
-    CPPUNIT_ASSERT_EQUAL(15, (int)(Number)json["status"]["system"]["uptime"]);
+	Object sys_obj = json["status"]["system"];
+	CPPUNIT_ASSERT_EQUAL(MAJOR_REV, (int)(Number)sys_obj["ver_major"]);
+	CPPUNIT_ASSERT_EQUAL(MINOR_REV, (int)(Number)sys_obj["ver_minor"]);
+	CPPUNIT_ASSERT_EQUAL(BUGFIX_REV, (int)(Number)sys_obj["ver_bugfix"]);
+	CPPUNIT_ASSERT_EQUAL(string(cpu_get_serialnumber()),
+			     (string)(String)sys_obj["serial"]);
+	CPPUNIT_ASSERT_EQUAL(string(version_full()),
+			     (string)(String)sys_obj["git_info"]);
 
-    CPPUNIT_ASSERT_EQUAL((int)GPS_STATUS_PROVISIONED, (int)(Number)json["status"]["GPS"]["init"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["GPS"]["qual"]);
-    CPPUNIT_ASSERT_EQUAL(0.0f, (float)(Number)json["status"]["GPS"]["lat"]);
-    CPPUNIT_ASSERT_EQUAL(0.0f, (float)(Number)json["status"]["GPS"]["lon"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["GPS"]["sats"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["GPS"]["DOP"]);
+	const enum release_type rt = version_get_release_type();
+	CPPUNIT_ASSERT_EQUAL(string(version_release_type_api_key(rt)),
+			     (string)(String)sys_obj["release_type"]);
 
-    CPPUNIT_ASSERT_EQUAL((int)CELLMODEM_STATUS_NOT_INIT, (int)(Number)json["status"]["cell"]["init"]);
-    CPPUNIT_ASSERT_EQUAL(string(""), (string)(String)json["status"]["cell"]["IMEI"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["cell"]["sig_str"]);
-    CPPUNIT_ASSERT_EQUAL(string(""), (string)(String)json["status"]["cell"]["number"]);
+	CPPUNIT_ASSERT_EQUAL(15, (int)(Number)sys_obj["uptime"]);
 
-    CPPUNIT_ASSERT_EQUAL((int)BT_STATUS_NOT_INIT, (int)(Number)json["status"]["bt"]["init"]);
+	Object gps_obj = json["status"]["GPS"];
+	CPPUNIT_ASSERT_EQUAL((int)GPS_STATUS_PROVISIONED,
+			     (int)(Number)gps_obj["init"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)gps_obj["qual"]);
+	CPPUNIT_ASSERT_EQUAL(0.0f, (float)(Number)gps_obj["lat"]);
+	CPPUNIT_ASSERT_EQUAL(0.0f, (float)(Number)gps_obj["lon"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)gps_obj["sats"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)gps_obj["DOP"]);
 
-    CPPUNIT_ASSERT_EQUAL((int)LOGGING_STATUS_IDLE, (int)(Number)json["status"]["logging"]["status"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["logging"]["started"]);
+	Object cell_obj = json["status"]["cell"];
+	CPPUNIT_ASSERT_EQUAL((int) CELLULAR_NETWORK_STATUS_UNKNOWN,
+			     (int)(Number)cell_obj["init"]);
+	CPPUNIT_ASSERT_EQUAL(string(""),
+			     (string)(String)cell_obj["IMEI"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)cell_obj["sig_str"]);
+	CPPUNIT_ASSERT_EQUAL(string(""), (string)(String)cell_obj["number"]);
 
-    CPPUNIT_ASSERT_EQUAL((int)TRACK_STATUS_WAITING_TO_CONFIG, (int)(Number)json["status"]["track"]["status"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["track"]["trackId"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["track"]["armed"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["track"]["inLap"]);
 
-    CPPUNIT_ASSERT_EQUAL((int)TELEMETRY_STATUS_IDLE, (int)(Number)json["status"]["telemetry"]["status"]);
-    CPPUNIT_ASSERT_EQUAL(0, (int)(Number)json["status"]["telemetry"]["started"]);
+	Object bt_obj = json["status"]["bt"];
+	CPPUNIT_ASSERT_EQUAL((int)BT_STATUS_NOT_INIT,
+			     (int)(Number)bt_obj["init"]);
+
+
+	Object logging_obj = json["status"]["logging"];
+	CPPUNIT_ASSERT_EQUAL((int)LOGGING_STATUS_IDLE,
+			     (int)(Number)logging_obj["status"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)logging_obj["started"]);
+
+
+	Object track_obj = json["status"]["track"];
+	CPPUNIT_ASSERT_EQUAL((int)TRACK_STATUS_WAITING_TO_CONFIG,
+			     (int)(Number)track_obj["status"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)track_obj["trackId"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)track_obj["armed"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)track_obj["inLap"]);
+
+	Object telemetry_obj = json["status"]["telemetry"];
+	CPPUNIT_ASSERT_EQUAL((int) TELEMETRY_STATUS_IDLE,
+			     (int)(Number)telemetry_obj["status"]);
+	CPPUNIT_ASSERT_EQUAL(0, (int)(Number)telemetry_obj["started"]);
+}
+
+void LoggerApiTest::testSetWifiCfg() {
+        const LoggerConfig *lc = getWorkingLoggerConfig();
+        char *response = processApiGeneric("set_wifi_cfg.json");
+
+        const struct wifi_cfg* cfg = &lc->ConnectivityConfigs.wifi;
+        CPPUNIT_ASSERT_EQUAL(true, cfg->active);
+
+        const struct wifi_client_cfg *client_cfg = &cfg->client;
+	CPPUNIT_ASSERT_EQUAL(true, client_cfg->active);
+	CPPUNIT_ASSERT_EQUAL(string("foobar"), string(client_cfg->ssid));
+        CPPUNIT_ASSERT_EQUAL(string("bazbiz"), string(client_cfg->passwd));
+
+        const struct wifi_ap_cfg *ap_cfg = &cfg->ap;
+	CPPUNIT_ASSERT_EQUAL(true, ap_cfg->active);
+	CPPUNIT_ASSERT_EQUAL(string("RaceIt"), string(ap_cfg->ssid));
+        CPPUNIT_ASSERT_EQUAL(string("dontcrashit"), string(ap_cfg->password));
+        CPPUNIT_ASSERT_EQUAL((uint8_t) 1, ap_cfg->channel);
+        CPPUNIT_ASSERT_EQUAL(ESP8266_ENCRYPTION_WPA2_PSK, ap_cfg->encryption);
+
+	assertGenericResponse(response, "setWifiCfg", API_SUCCESS);
+}
+
+void LoggerApiTest::testSetWifiCfgApBadChannel()
+{
+        char *response = processApiGeneric("set_wifi_cfg_ap_bad_channel.json");
+	assertGenericResponse(response, "setWifiCfg", API_ERROR_PARAMETER);
+}
+
+void LoggerApiTest::testSetWifiCfgApBadEncryption()
+{
+        char *response = processApiGeneric("set_wifi_cfg_ap_bad_encryption.json");
+	assertGenericResponse(response, "setWifiCfg", API_ERROR_PARAMETER);
+}
+
+void LoggerApiTest::testGetWifiCfgDefault() {
+        const char *response = processApiGeneric("get_wifi_cfg.json");
+
+        Object json;
+        stringToJson(response, json);
+
+        Object gwc = json["wifiCfg"];
+        CPPUNIT_ASSERT_EQUAL(true, (bool)(Boolean)gwc["active"]);
+
+        Object wcc = gwc["client"];
+        CPPUNIT_ASSERT_EQUAL(false, (bool)(Boolean)wcc["active"]);
+        CPPUNIT_ASSERT_EQUAL(string(""), (string)(String)wcc["ssid"]);
+        CPPUNIT_ASSERT_EQUAL(string(""), (string)(String)wcc["password"]);
+
+        Object apc = gwc["ap"];
+        CPPUNIT_ASSERT_EQUAL(true, (bool)(Boolean)apc["active"]);
+        CPPUNIT_ASSERT_EQUAL(string(""), (string)(String)apc["password"]);
+        CPPUNIT_ASSERT_EQUAL(string("none"), (string)(String)apc["encryption"]);
+        CPPUNIT_ASSERT_EQUAL(11, (int)(Number)apc["channel"]);
+}
+
+void LoggerApiTest::testSetGetWifiCfg() {
+        testSetWifiCfg();
+
+        setupMockSerial();
+        const char *response = processApiGeneric("get_wifi_cfg.json");
+
+        Object json;
+        stringToJson(response, json);
+
+        Object gwc = json["wifiCfg"];
+        CPPUNIT_ASSERT_EQUAL(true, (bool)(Boolean)gwc["active"]);
+
+        Object wcc = gwc["client"];
+        CPPUNIT_ASSERT_EQUAL(true, (bool)(Boolean)wcc["active"]);
+        CPPUNIT_ASSERT_EQUAL(string("foobar"), (string)(String)wcc["ssid"]);
+        CPPUNIT_ASSERT_EQUAL(string("bazbiz"), (string)(String)wcc["password"]);
+
+        Object apc = gwc["ap"];
+        CPPUNIT_ASSERT_EQUAL(true, (bool)(Boolean)apc["active"]);
+        CPPUNIT_ASSERT_EQUAL(string("RaceIt"), (string)(String)apc["ssid"]);
+        CPPUNIT_ASSERT_EQUAL(string("dontcrashit"),
+                             (string)(String)apc["password"]);
+        CPPUNIT_ASSERT_EQUAL(string("wpa2"), (string)(String)apc["encryption"]);
+        CPPUNIT_ASSERT_EQUAL(1, (int)(Number)apc["channel"]);
+}
+
+void LoggerApiTest::setActiveTrack()
+{
+        char *response = processApiGeneric("set_active_track.json");
+        assertGenericResponse(response, "setActiveTrack", API_SUCCESS);
+
+        CPPUNIT_ASSERT_EQUAL(TRACK_STATUS_EXTERNALLY_SET,
+                             lapstats_get_track_status());
+        CPPUNIT_ASSERT_EQUAL(true, lapstats_is_track_valid());
+        CPPUNIT_ASSERT_EQUAL(999999, lapstats_get_selected_track_id());
+        CPPUNIT_ASSERT_EQUAL(false, lapstats_track_has_sectors());
+
+        const float rad_deg = getWorkingLoggerConfig()->TrackConfigs.radius;
+        const float radius_m = lapstats_degrees_to_meters(rad_deg);
+        CPPUNIT_ASSERT_EQUAL(radius_m, lapstats_get_geo_circle_radius());
+}
+
+void LoggerApiTest::setActiveTrackSectors()
+{
+        char *response = processApiGeneric("set_active_track_sectors.json");
+        assertGenericResponse(response, "setActiveTrack", API_SUCCESS);
+
+        CPPUNIT_ASSERT_EQUAL(TRACK_STATUS_EXTERNALLY_SET,
+                             lapstats_get_track_status());
+        CPPUNIT_ASSERT_EQUAL(true, lapstats_is_track_valid());
+        CPPUNIT_ASSERT_EQUAL(999999, lapstats_get_selected_track_id());
+        CPPUNIT_ASSERT_EQUAL(true, lapstats_track_has_sectors());
+
+        const float rad_deg = getWorkingLoggerConfig()->TrackConfigs.radius;
+        const float radius_m = lapstats_degrees_to_meters(rad_deg);
+        CPPUNIT_ASSERT_EQUAL(radius_m, lapstats_get_geo_circle_radius());
+}
+
+
+void LoggerApiTest::setActiveTrackInvalid()
+{
+        char *response = processApiGeneric("set_active_track_invalid.json");
+        assertGenericResponse(response, "setActiveTrack", API_ERROR_PARAMETER);
+
+        CPPUNIT_ASSERT_EQUAL(TRACK_STATUS_WAITING_TO_CONFIG,
+                             lapstats_get_track_status());
+        CPPUNIT_ASSERT_EQUAL(false, lapstats_is_track_valid());
+        CPPUNIT_ASSERT_EQUAL(0, lapstats_get_selected_track_id());
+}
+
+void LoggerApiTest::setActiveTrackRadiusMeters()
+{
+        char *response =
+                processApiGeneric("set_active_track_radius_meters.json");
+        assertGenericResponse(response, "setActiveTrack", API_SUCCESS);
+
+        CPPUNIT_ASSERT_EQUAL(TRACK_STATUS_EXTERNALLY_SET,
+                             lapstats_get_track_status());
+        CPPUNIT_ASSERT_EQUAL(true, lapstats_is_track_valid());
+        CPPUNIT_ASSERT_EQUAL(8888, lapstats_get_selected_track_id());
+        CPPUNIT_ASSERT_EQUAL((float) 7, lapstats_get_geo_circle_radius());
+}
+
+void LoggerApiTest::setActiveTrackRadiusDegrees()
+{
+        char *response =
+                processApiGeneric("set_active_track_radius_degrees.json");
+        assertGenericResponse(response, "setActiveTrack", API_SUCCESS);
+
+        CPPUNIT_ASSERT_EQUAL(TRACK_STATUS_EXTERNALLY_SET,
+                             lapstats_get_track_status());
+        CPPUNIT_ASSERT_EQUAL(true, lapstats_is_track_valid());
+        CPPUNIT_ASSERT_EQUAL(8675309, lapstats_get_selected_track_id());
+        const float rad_deg = 0.007;
+        const float radius_m = lapstats_degrees_to_meters(rad_deg);
+        CPPUNIT_ASSERT_EQUAL(radius_m, lapstats_get_geo_circle_radius());
+}
+
+void LoggerApiTest::testGetAutoLoggerCfgDefault() {
+        const char *response = processApiGeneric("get_auto_logger_cfg.json");
+
+        struct auto_logger_config alc;
+        auto_logger_reset_config(&alc);
+
+        Object json;
+        stringToJson(response, json);
+
+        Object galc = json["autoLoggerCfg"];
+        CPPUNIT_ASSERT_EQUAL(alc.active, (bool)(Boolean)galc["active"]);
+
+        Object start_st = galc["start"];
+        CPPUNIT_ASSERT_EQUAL(alc.start.speed, (float)(Number)start_st["speed"]);
+        CPPUNIT_ASSERT_EQUAL(alc.start.time, (uint32_t)(Number)start_st["time"]);
+
+        Object stop_st = galc["stop"];
+        CPPUNIT_ASSERT_EQUAL(alc.stop.time, (uint32_t)(Number)stop_st["time"]);
+        CPPUNIT_ASSERT_EQUAL(alc.stop.speed, (float)(Number)stop_st["speed"]);
+}
+
+void LoggerApiTest::testSetAutoLoggerCfg() {
+        const LoggerConfig *lc = getWorkingLoggerConfig();
+        char *response = processApiGeneric("set_auto_logger_cfg.json");
+
+        const struct auto_logger_config* cfg = &lc->auto_logger_cfg;
+        CPPUNIT_ASSERT_EQUAL(true, cfg->active);
+
+        CPPUNIT_ASSERT_EQUAL((float) 45.6, cfg->start.speed);
+	CPPUNIT_ASSERT_EQUAL((uint32_t) 3, cfg->start.time);
+
+        CPPUNIT_ASSERT_EQUAL((uint32_t) 42, cfg->stop.time);
+        CPPUNIT_ASSERT_EQUAL((float) 34.5, cfg->stop.speed);
+
+        assertGenericResponse(response, "setAutoLoggerCfg", API_SUCCESS);
 }

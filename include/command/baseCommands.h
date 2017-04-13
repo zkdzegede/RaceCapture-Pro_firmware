@@ -22,22 +22,28 @@
 #ifndef BASECOMMANDS_H_
 #define BASECOMMANDS_H_
 
+#include "command.h"
 #include "cpp_guard.h"
 #include "constants.h"
 #include "serial.h"
 
 CPP_GUARD_BEGIN
 
-#define BASE_COMMANDS \
-		{"showTasks", "Show status of running tasks", "", ShowTaskInfo}, \
-		{"version", "Gets the version numbers", "", GetVersion}, \
-		{"showStats", "Info on system statistics.","", ShowStats}, \
-		{"sysReset", "Reset the system", "", ResetSystem}
+#define BASE_COMMANDS                                                   \
+        SYSTEM_COMMAND("showTasks", "Show status of running tasks", "", \
+                       ShowTaskInfo)                                    \
+        SYSTEM_COMMAND("version", "Gets the version numbers", "",       \
+                       GetVersion)                                      \
+        SYSTEM_COMMAND("showStats", "Info on system statistics.","",    \
+                       ShowStats)                                       \
+        SYSTEM_COMMAND("sysReset", "Reset the system",                  \
+                       "[bootloader 0|1]", ResetSystem)
 
-void ShowTaskInfo(Serial *serial, unsigned int argc, char **argv);
-void GetVersion(Serial *serial, unsigned int argc, char **argv);
-void ShowStats(Serial *serial, unsigned int argc, char **argv);
-void ResetSystem(Serial *serial, unsigned int argc, char **argv);
+
+void ShowTaskInfo(struct Serial *serial, unsigned int argc, char **argv);
+void GetVersion(struct Serial *serial, unsigned int argc, char **argv);
+void ShowStats(struct Serial *serial, unsigned int argc, char **argv);
+void ResetSystem(struct Serial *serial, unsigned int argc, char **argv);
 
 CPP_GUARD_END
 

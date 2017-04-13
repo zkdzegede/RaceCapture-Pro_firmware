@@ -19,32 +19,19 @@
  * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SIM900_H_
-#define SIM900_H_
+#ifndef _SIM900_H_
+#define _SIM900_H_
 
+#include "cellular.h"
 #include "cpp_guard.h"
-#include "stddef.h"
-#include "devices_common.h"
+#include "serial_buffer.h"
+
+#include <stdbool.h>
 
 CPP_GUARD_BEGIN
 
-typedef enum {
-    TELEMETRY_STATUS_IDLE = 0,
-    TELEMETRY_STATUS_CONNECTED,
-    TELEMETRY_STATUS_CURRENT_CONNECTION_TERMINATED,
-    TELEMETRY_STATUS_REJECTED_DEVICE_ID,
-    TELEMETRY_STATUS_DATA_PLAN_NOT_AVAILABLE,
-    TELEMETRY_STATUS_SERVER_CONNECTION_FAILED,
-    TELEMETRY_STATUS_INTERNET_CONFIG_FAILED,
-    TELEMETRY_STATUS_CELL_REGISTRATION_FAILED
-} telemetry_status_t;
-
-telemetry_status_t sim900_get_connection_status();
-int32_t sim900_active_time();
-int sim900_disconnect(DeviceConfig *config);
-int sim900_init_connection(DeviceConfig *config);
-int sim900_check_connection_status(DeviceConfig *config);
+const struct cell_modem_methods* get_sim900_methods();
 
 CPP_GUARD_END
 
-#endif /* SIM900_H_ */
+#endif /* _SIM900_H_ */

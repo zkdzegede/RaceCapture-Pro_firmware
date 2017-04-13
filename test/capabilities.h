@@ -31,21 +31,35 @@ CPP_GUARD_BEGIN
 
 #define TICK_RATE_HZ			1000
 #define MS_PER_TICK 5
+
+//USB support
+#define USB_SERIAL_SUPPORT	1
+#define LUA_SUPPORT		1
+#define VIRTUAL_CHANNEL_SUPPORT	1
+#define SDCARD_SUPPORT		1
+#define CELLULAR_SUPPORT	1
+#define BLUETOOTH_SUPPORT	1
+#define WIFI_SUPPORT		1
+
 //configuration
 #define MAX_TRACKS				240
 #define MAX_SECTORS				20
 #define MAX_VIRTUAL_CHANNELS	10
 
-#define LOGGER_MESSAGE_BUFFER_SIZE	5
+/* Wifi Specific Info */
+#define WIFI_MAX_BAUD		921600
+#define WIFI_MAX_SAMPLE_RATE	50
+#define WIFI_ENABLED_DEFAULT	true
+
+/* Rx Max Message length */
+#define RX_MAX_MSG_LEN	768
 
 /*
- * Adds additional memory saving behavior for low memory systems.
- * These come at a cost of interruption of other services as needed
- * to save RAM.  Usually quick interruptions, but interruptions
- * none the less.
+ * What is the maximum number of samples available per predictive time
+ * buffer.  More samples == better resolution. Each slot is 12 bytes.
  */
-#define RCP_LOW_MEM	0
-
+#define PREDICTIVE_TIME_MAX_SAMPLES	96
+#define LOGGER_MESSAGE_BUFFER_SIZE	5
 
 /* LUA Configuration */
 
@@ -99,15 +113,22 @@ CPP_GUARD_BEGIN
 #define MAX_GPS_SAMPLE_RATE		50
 #define MAX_OBD2_SAMPLE_RATE	1000
 
+//logger message buffering
+// Should have no effect in testing.  Kept for consistency.
+#define LOGGER_MESSAGE_BUFFER_SIZE  5
+
+// Include this for posterity.  Should make no difference.
+#define TASK_TASK_INIT 1
+
 //logging
 #define LOG_BUFFER_SIZE			1024
 
 //system info
 #define DEVICE_NAME    "RCP_SIM"
 #define FRIENDLY_DEVICE_NAME "RaceCapture/Pro Sim"
-#define COMMAND_PROMPT "RaceCapture/Pro Sim"
-#define VERSION_STR MAJOR_REV_STR "." MINOR_REV_STR "." BUGFIX_REV_STR
-#define WELCOME_MSG "Welcome to RaceCapture/Pro Sim: Firmware Version " VERSION_STR
+
+/* How big is our hardware init stack */
+#define HARDWARE_INIT_STACK_SIZE	192
 
 CPP_GUARD_END
 

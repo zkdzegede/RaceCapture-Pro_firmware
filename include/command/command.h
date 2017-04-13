@@ -37,7 +37,7 @@ CPP_GUARD_BEGIN
 #define ERROR_CODE_CRITICAL_ERROR -4
 
 typedef struct _cmd_context {
-    Serial * serial;
+    struct Serial * serial;
     char * lineBuffer;
     size_t lineBufferSize;
 } cmd_context;
@@ -46,22 +46,25 @@ typedef struct _cmd_t {
     const char *cmd;
     const char *help;
     const char *paramHelp;
-    void (*func)(Serial *serial, unsigned int argc, char **argv);
+    void (*func)(struct Serial *serial, unsigned int argc, char **argv);
 } cmd_t;
 
-#define NULL_COMMAND {NULL, NULL,NULL, NULL}
+#define SYSTEM_COMMAND(_CMD, _DESC, _ARG_DESC, _METHOD) \
+        {(_CMD),(_DESC),(_ARG_DESC),(_METHOD)},
 
-void show_welcome(Serial *serial);
+#define NULL_COMMAND {NULL, NULL, NULL, NULL}
 
-void show_command_prompt(Serial *serial);
+void show_welcome(struct Serial *serial);
 
-int process_command(Serial *serial, char * buffer, size_t bufferSize);
+void show_command_prompt(struct Serial *serial);
 
-void put_commandOK(Serial * serial);
+int process_command(struct Serial *serial, char * buffer, size_t bufferSize);
 
-void put_commandError(Serial * serial, int result);
+void put_commandOK(struct Serial * serial);
 
-void put_commandParamError(Serial * serial, char *msg);
+void put_commandError(struct Serial * serial, int result);
+
+void put_commandParamError(struct Serial * serial, char *msg);
 
 void init_command(void);
 

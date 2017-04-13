@@ -1,7 +1,7 @@
 /*
  * Race Capture Firmware
  *
- * Copyright (C) 2015 Autosport Labs
+ * Copyright (C) 2016 Autosport Labs
  *
  * This file is part of the Race Capture firmware suite
  *
@@ -19,32 +19,39 @@
  * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "ADC.h"
 #include "FreeRTOS.h"
 #include "GPIO.h"
-#include "GPIO.h"
 #include "OBD2.h"
 #include "PWM.h"
+#include "channel_config.h"
 #include "dateTime.h"
 #include "geopoint.h"
 #include "gps.h"
 #include "imu.h"
-#include "lap_stats.h"
 #include "lap_stats.h"
 #include "linear_interpolate.h"
 #include "loggerConfig.h"
 #include "loggerData.h"
 #include "loggerHardware.h"
 #include "loggerSampleData.h"
+#include "macros.h"
 #include "predictive_timer_2.h"
 #include "printk.h"
 #include "sampleRecord.h"
 #include "taskUtil.h"
 #include "timer.h"
+#include "units.h"
 #include "virtual_channel.h"
-
 #include <stdbool.h>
+
+#define SAMPLE_CB_REGISTRY_SIZE	8
+
+struct sample_cb_registry {
+        logger_sample_cb_t* cb;
+        void* data;
+        int rate;
+} sample_cb_registry[SAMPLE_CB_REGISTRY_SIZE];
 
 static ChannelSample* processChannelSampleWithFloatGetter(ChannelSample *s,
         ChannelConfig *cfg,
@@ -152,6 +159,7 @@ float get_mapped_value(float value, ScalingMap *scalingMap)
     return scaled;
 }
 
+#if ANALOG_CHANNELS > 0
 float get_analog_sample(int channelId)
 {
     LoggerConfig * loggerConfig = getWorkingLoggerConfig();
@@ -174,33 +182,9 @@ float get_analog_sample(int channelId)
     }
     return analogValue;
 }
+#endif
 
-float get_timer_sample(int channelId)
-{
-    LoggerConfig *loggerConfig = getWorkingLoggerConfig();
-    TimerConfig *c = &(loggerConfig->TimerConfigs[channelId]);
-    float timerValue = 0;
-    uint8_t pulsePerRevolution = c->pulsePerRevolution;
-    switch (c->mode) {
-    case MODE_LOGGING_TIMER_RPM:
-        timerValue = timer_get_rpm(channelId) / pulsePerRevolution;
-        break;
-    case MODE_LOGGING_TIMER_FREQUENCY:
-        timerValue = timer_get_hz(channelId) / pulsePerRevolution;
-        break;
-    case MODE_LOGGING_TIMER_PERIOD_MS:
-        timerValue = timer_get_ms(channelId) * pulsePerRevolution;
-        break;
-    case MODE_LOGGING_TIMER_PERIOD_USEC:
-        timerValue = timer_get_usec(channelId) * pulsePerRevolution;
-        break;
-    default:
-        timerValue = -1;
-        break;
-    }
-    return timerValue;
-}
-
+#if PWM_CHANNELS > 0
 float get_pwm_sample(int channelId)
 {
     LoggerConfig *loggerConfig = getWorkingLoggerConfig();
@@ -222,13 +206,34 @@ float get_pwm_sample(int channelId)
     }
     return pwmValue;
 }
+#endif
 
+#if IMU_CHANNELS > 0
 float get_imu_sample(int channelId)
 {
     LoggerConfig *config = getWorkingLoggerConfig();
     ImuConfig *c = &(config->ImuConfigs[channelId]);
     float value = imu_read_value(channelId, c);
     return value;
+}
+#endif
+
+static void* get_altitude_getter(const ChannelConfig *cc)
+{
+	return UNIT_LENGTH_METERS == units_get_unit(cc->units) ?
+		gps_get_altitude_meters : getAltitude;
+}
+
+static void* get_distance_getter(const ChannelConfig *cc)
+{
+	return UNIT_LENGTH_KILOMETERS == units_get_unit(cc->units) ?
+		getLapDistance : getLapDistanceInMiles;
+}
+
+static void* get_speed_getter(const ChannelConfig *cc)
+{
+	return UNIT_SPEED_KILOMETERS_HOUR == units_get_unit(cc->units) ?
+		getGPSSpeed : getGpsSpeedInMph;
 }
 
 void init_channel_sample_buffer(LoggerConfig *loggerConfig, struct sample *buff)
@@ -253,36 +258,45 @@ void init_channel_sample_buffer(LoggerConfig *loggerConfig, struct sample *buff)
     chanCfg->flags = ALWAYS_SAMPLED; // Set always sampled flag here so we always take samples
     sample = processChannelSampleWithLongLongGetterNoarg(sample, chanCfg, getMillisSinceEpochAsLongLong);
 
-
+#if ANALOG_CHANNELS > 0
     for (int i=0; i < CONFIG_ADC_CHANNELS; i++) {
         ADCConfig *config = &(loggerConfig->ADCConfigs[i]);
         chanCfg = &(config->cfg);
         sample = processChannelSampleWithFloatGetter(sample, chanCfg, i, get_analog_sample);
     }
+#endif
 
+#if IMU_CHANNELS > 0
     for (int i = 0; i < CONFIG_IMU_CHANNELS; i++) {
         ImuConfig *config = &(loggerConfig->ImuConfigs[i]);
         chanCfg = &(config->cfg);
         sample = processChannelSampleWithFloatGetter(sample, chanCfg, i, get_imu_sample);
     }
+#endif
 
+#if TIMER_CHANNELS > 0
     for (int i=0; i < CONFIG_TIMER_CHANNELS; i++) {
         TimerConfig *config = &(loggerConfig->TimerConfigs[i]);
         chanCfg = &(config->cfg);
-        sample = processChannelSampleWithFloatGetter(sample, chanCfg, i, get_timer_sample);
+        sample = processChannelSampleWithFloatGetter(sample, chanCfg, i, timer_get_sample);
     }
+#endif
 
+#if GPIO_CHANNELS > 0
     for (int i=0; i < CONFIG_GPIO_CHANNELS; i++) {
         GPIOConfig *config = &(loggerConfig->GPIOConfigs[i]);
         chanCfg = &(config->cfg);
         sample = processChannelSampleWithIntGetter(sample, chanCfg, i, GPIO_get);
     }
+#endif
 
+#if PWM_CHANNELS > 0
     for (int i=0; i < CONFIG_PWM_CHANNELS; i++) {
         PWMConfig *config = &(loggerConfig->PWMConfigs[i]);
         chanCfg = &(config->cfg);
         sample = processChannelSampleWithFloatGetter(sample, chanCfg, i, get_pwm_sample);
     }
+#endif
 
     OBD2Config *obd2Config = &(loggerConfig->OBD2Configs);
     const unsigned char enabled = loggerConfig->OBD2Configs.enabled;
@@ -292,12 +306,14 @@ void init_channel_sample_buffer(LoggerConfig *loggerConfig, struct sample *buff)
                                                    OBD2_get_current_PID_value);
     }
 
+#if VIRTUAL_CHANNEL_SUPPORT
     const size_t virtualChannelCount = get_virtual_channel_count();
     for (size_t i = 0; i < virtualChannelCount; i++) {
         VirtualChannel *vc = get_virtual_channel(i);
         chanCfg = &(vc->config);
         sample = processChannelSampleWithFloatGetter(sample, chanCfg, i, get_virtual_channel_value);
     }
+#endif /* VIRTUAL_CHANNEL_SUPPORT */
 
     GPSConfig *gpsConfig = &(loggerConfig->GPSConfigs);
     chanCfg = &(gpsConfig->latitude);
@@ -305,11 +321,14 @@ void init_channel_sample_buffer(LoggerConfig *loggerConfig, struct sample *buff)
     chanCfg = &(gpsConfig->longitude);
     sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg, GPS_getLongitude);
     chanCfg = &(gpsConfig->speed);
-    sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg, getGpsSpeedInMph);
+    sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg,
+						      get_speed_getter(chanCfg));
     chanCfg = &(gpsConfig->distance);
-    sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg, getLapDistanceInMiles);
+    sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg,
+						      get_distance_getter(chanCfg));
     chanCfg = &(gpsConfig->altitude);
-    sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg, getAltitude);
+    sample = processChannelSampleWithFloatGetterNoarg(sample, chanCfg,
+						      get_altitude_getter(chanCfg));
     chanCfg = &(gpsConfig->satellites);
     sample = processChannelSampleWithIntGetterNoarg(sample, chanCfg, GPS_getSatellitesUsedForPosition);
     chanCfg = &(gpsConfig->quality);
@@ -379,6 +398,7 @@ int populate_sample_buffer(struct sample *s, size_t logTick)
     unsigned short highestRate = SAMPLE_DISABLED;
     ChannelSample *samples = s->channel_samples;
     const size_t count = s->channel_count;
+    s->ticks = logTick;
 
     for (size_t i = 0; i < count; i++, samples++) {
         const unsigned short sampleRate = samples->cfg->sampleRate;
@@ -409,4 +429,62 @@ int populate_sample_buffer(struct sample *s, size_t logTick)
     }
 
     return highestRate;
+}
+
+
+static bool is_valid_registry_index(const int idx)
+{
+        return (size_t) idx < ARRAY_LEN(sample_cb_registry);
+}
+
+void logger_sample_process_callbacks(const int ticks,
+                                     const struct sample* sample)
+{
+        for (int i = 0; is_valid_registry_index(i); ++i) {
+                struct sample_cb_registry* slot = sample_cb_registry + i;
+                if (slot->cb && should_sample(ticks, slot->rate))
+                        slot->cb(sample, ticks, slot->data);
+        }
+}
+
+/**
+ * Sets up a callback for logger samples at the specified rate.  An optinal
+ * user defined argument allows the caller to include context when they get
+ * the callback so that they may send out data appropriately.
+ * @param cb The method to call back.
+ * @param rate The sample rate that is desired.
+ * @param data User defined data that will be provided to the callback.
+ * @return A handle that references this callback's registration id; else -1
+ * if there was an error.
+ */
+int logger_sample_create_callback(logger_sample_cb_t* cb, const int rate,
+				  void* data)
+{
+        for (int i = 0; cb && is_valid_registry_index(i); ++i) {
+                struct sample_cb_registry* slot = sample_cb_registry + i;
+                if (slot->cb)
+			continue;
+
+		/* If here then we found a slot */
+		slot->cb = cb;
+		slot->data = data;
+		slot->rate = encodeSampleRate(rate);
+		return i;
+        }
+
+        return -1;
+}
+
+/**
+ * Destroys a logger callback created by the #logger_sample_create_callback method.
+ * Requires the handle returned by the creation process to destroy it.
+ */
+bool logger_sample_destroy_callback(const int handle)
+{
+	if (!is_valid_registry_index(handle))
+		return false;
+
+	struct sample_cb_registry* slot = sample_cb_registry + handle;
+	memset(slot, 0, sizeof(struct sample_cb_registry));
+	return true;
 }

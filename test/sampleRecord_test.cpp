@@ -32,6 +32,7 @@
 #include "loggerConfig.h"
 #include "loggerHardware.h"
 #include "loggerSampleData.test.h"
+#include "mock_serial.h"
 #include "predictive_timer_2.h"
 #include "sampleRecord.h"
 #include "task.h"
@@ -50,12 +51,13 @@ struct sample s;
 void SampleRecordTest::setUp()
 {
 	InitLoggerHardware();
-	GPS_init(10, get_serial(SERIAL_GPS));
+        setupMockSerial();
+        GPS_init(10, getMockSerial());
 	initialize_logger_config();
 	reset_ticks();
 
         lc = getWorkingLoggerConfig();
-        lapStats_init();
+        lapstats_reset();
         size_t channelCount = get_enabled_channel_count(lc);
         init_sample_buffer(&s, channelCount);
 
@@ -97,27 +99,27 @@ void SampleRecordTest::testPopulateSampleRecord(){
 
 	//accelerometer channels
 	samples++;
-	CPPUNIT_ASSERT_EQUAL(imu_read_value(0, &lc->ImuConfigs[0]),
+	CPPUNIT_ASSERT_EQUAL(imu_read_value(IMU_CHANNEL_X, &lc->ImuConfigs[0]),
                              samples->valueFloat);
 
 	samples++;
-	CPPUNIT_ASSERT_EQUAL(imu_read_value(1, &lc->ImuConfigs[1]),
+	CPPUNIT_ASSERT_EQUAL(imu_read_value(IMU_CHANNEL_Y, &lc->ImuConfigs[1]),
                              samples->valueFloat);
 
 	samples++;
-	CPPUNIT_ASSERT_EQUAL(imu_read_value(2, &lc->ImuConfigs[2]),
+	CPPUNIT_ASSERT_EQUAL(imu_read_value(IMU_CHANNEL_Z, &lc->ImuConfigs[2]),
                              samples->valueFloat);
 
 	samples++;
-	CPPUNIT_ASSERT_EQUAL(imu_read_value(3, &lc->ImuConfigs[3]),
+	CPPUNIT_ASSERT_EQUAL(imu_read_value(IMU_CHANNEL_YAW, &lc->ImuConfigs[3]),
                              samples->valueFloat);
 
 	samples++;
-	CPPUNIT_ASSERT_EQUAL(imu_read_value(4, &lc->ImuConfigs[4]),
+	CPPUNIT_ASSERT_EQUAL(imu_read_value(IMU_CHANNEL_PITCH, &lc->ImuConfigs[4]),
                              samples->valueFloat);
 
 	samples++;
-	CPPUNIT_ASSERT_EQUAL(imu_read_value(5, &lc->ImuConfigs[4]),
+	CPPUNIT_ASSERT_EQUAL(imu_read_value(IMU_CHANNEL_ROLL, &lc->ImuConfigs[5]),
                              samples->valueFloat);
 
 	//GPS / Track channels
@@ -221,7 +223,7 @@ void SampleRecordTest::testInitSampleRecord()
 
                 CPPUNIT_ASSERT_EQUAL((size_t)i, ts->channelIndex);
                 CPPUNIT_ASSERT_EQUAL((void *) &tc->cfg, (void *) ts->cfg);
-                CPPUNIT_ASSERT_EQUAL((void *) get_timer_sample,
+                CPPUNIT_ASSERT_EQUAL((void *) timer_get_sample,
                                      (void *) ts->get_float_sample);
                 CPPUNIT_ASSERT_EQUAL(SampleData_Float, ts->sampleData);
                 ts++;
@@ -402,7 +404,7 @@ void SampleRecordTest::testIsValidLoggerMessage() {
         struct sample s;
 
         /* Test the non sample case.  This always passes */
-        lm = create_logger_message(LoggerMessageType_Start, NULL);
+        lm = create_logger_message(LoggerMessageType_Start, 0, NULL);
         lm.ticks = 42;
         s.ticks = 42;
         CPPUNIT_ASSERT_EQUAL(true, is_sample_data_valid(&lm));
@@ -410,7 +412,7 @@ void SampleRecordTest::testIsValidLoggerMessage() {
         CPPUNIT_ASSERT_EQUAL(true,  is_sample_data_valid(&lm));
 
         /* Test the sample case. */
-        lm = create_logger_message(LoggerMessageType_Sample, &s);
+        lm = create_logger_message(LoggerMessageType_Sample, 0,&s);
         lm.ticks = 42;
         s.ticks = 42;
         CPPUNIT_ASSERT_EQUAL(true, is_sample_data_valid(&lm));

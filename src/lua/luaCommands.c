@@ -19,7 +19,6 @@
  * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "FreeRTOS.h"
 #include "lauxlib.h"
 #include "lua.h"
@@ -27,42 +26,42 @@
 #include "luaScript.h"
 #include "luaTask.h"
 #include "lualib.h"
+#include "macros.h"
 #include "memory.h"
-#include "mod_string.h"
-#include "modp_atonum.h"
 #include "modp_numtoa.h"
 #include "printk.h"
+#include <string.h>
 
 static int g_interactive_mode = 0;
 
-void ExecLuaInterpreter(Serial *serial, unsigned int argc, char **argv)
+void ExecLuaInterpreter(struct Serial *serial, unsigned int argc, char **argv)
 {
-        serial->put_s("Entering Lua Interpreter. enter 'exit' to leave");
+        serial_write_s(serial, "Entering Lua Interpreter. enter 'exit' "
+                     "to leave");
         put_crlf(serial);
 
-        cmd_context *cmdContext = get_command_context();
-        char *luaLine = cmdContext->lineBuffer;
+        static char luaLine[256];
 
         g_interactive_mode = 1;
 
         for(;;) {
-                serial->put_s("> ");
-                interactive_read_line(serial, luaLine, cmdContext->lineBufferSize);
+                serial_write_s(serial, "> ");
+                interactive_read_line(serial, luaLine, ARRAY_LEN(luaLine));
 
                 if (0 == strcmp(luaLine, "exit"))
                         break;
 
-                run_lua_interactive_cmd(serial, luaLine);
+                lua_task_run_interactive_cmd(serial, luaLine);
         }
 
         g_interactive_mode = 0;
 }
 
 
-void ReloadScript(Serial *serial, unsigned int argc, char **argv)
+void ReloadScript(struct Serial *serial, unsigned int argc, char **argv)
 {
-        terminate_lua();
-        initialize_lua();
+        lua_task_stop();
+        lua_task_start();
         put_commandOK(serial);
 }
 

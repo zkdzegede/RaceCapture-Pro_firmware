@@ -22,9 +22,10 @@
 #ifndef SAMPLERECORD_H_
 #define SAMPLERECORD_H_
 
+#include "FreeRTOS.h"
+#include "channel_config.h"
 #include "cpp_guard.h"
 #include "dateTime.h"
-#include "FreeRTOS.h"
 #include "loggerConfig.h"
 #include "queue.h"
 
@@ -88,9 +89,9 @@ struct sample {
 };
 
 typedef struct _LoggerMessage {
-    enum LoggerMessageType type;
-    size_t ticks;
-    struct sample *sample;
+        enum LoggerMessageType type;
+        size_t ticks;
+        struct sample *sample;
 } LoggerMessage;
 
 /**
@@ -113,18 +114,11 @@ void free_sample_buffer(struct sample *s);
 /**
  * Creates a LoggerMessage for use in the messaging between threads.
  * @param t The messaget type.
+ * @param ticks The logger tick value.
  * @param s The associated sample object (if any).
  */
 LoggerMessage create_logger_message(const enum LoggerMessageType t,
-                                    struct sample *s);
-
-/**
- * Tests if the given LoggerMessage points to valid data by comparing
- * timestamps.
- * @param lm The LoggerMessage to validate
- * @return true if valid, false otherwise
- */
-bool is_sample_data_valid(const LoggerMessage *lm);
+                                    const size_t ticks, struct sample *s);
 
 /**
  * Receives and validates a LoggerMessage from the provided queue.  If the
@@ -138,21 +132,14 @@ bool is_sample_data_valid(const LoggerMessage *lm);
 char receive_logger_message(xQueueHandle queue, LoggerMessage *lm,
                             portTickType timeout);
 
-/**
- * Checks to ensure that the LoggerMessage object is pointing to a usable
- * data_sample structure.  This is needed because while the LoggerMessages are
- * deeply copied to their respective queues, the data_sample structures are not
- * (they are a part of a ring buffer).  So we must validate that the timestamp
- * on the LoggerMessage matches that of the data_sample object.
- * @param lm The LoggerMessage object.
- * @return True if the data_sample is usable, false otherwise.
- */
-bool is_data_sample_valid(const LoggerMessage *lm);
+bool is_sample_data_valid(const LoggerMessage *lm);
 
 /**
  * Creates a brand new LoggerMessage queue.  This is useful for sending
  * LoggerMessage objects to all the little subscribers that need to get
- * them.
+ * them.  Its size is always equal to the number of sample buffers we
+ * allocate.  This is because there is little point in allocating more
+ * queue space than we have buffers.
  * @return A newly allocated queue.
  */
 xQueueHandle create_logger_message_queue();

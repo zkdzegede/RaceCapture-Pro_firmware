@@ -1,28 +1,30 @@
-/**
- * Race Capture Pro Firmware
+/*
+ * Race Capture Firmware
  *
- * Copyright (C) 2014 Autosport Labs
+ * Copyright (C) 2016 Autosport Labs
  *
- * This file is part of the Race Capture Pro fimrware suite
+ * This file is part of the Race Capture firmware suite
  *
- * This is free software: you can redistribute it and/or modify it under the terms of the
- * GNU General Public License as published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
+ * This is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This software is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * See the GNU General Public License for more details. You should have received a copy of the GNU
- * General Public License along with this code. If not, see <http://www.gnu.org/licenses/>.
- *
- * Authors: Stieg
+ * See the GNU General Public License for more details. You should
+ * have received a copy of the GNU General Public License along with
+ * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-#include "loggerConfig_test.h"
+#include "channel_config.h"
+#include "cpu.h"
 #include "loggerConfig.h"
-#include "mod_string.h"
-
+#include "loggerConfig_test.h"
+#include "units.h"
+#include <string.h>
 #include <string>
 
 using std::string;
@@ -102,13 +104,24 @@ void LoggerConfigTest::testLoggerInitGpioConfig() {
 }
 
 void LoggerConfigTest::testLoggerInitTimerConfig() {
-   LoggerConfig *lc = getWorkingLoggerConfig();
+	LoggerConfig *lc = getWorkingLoggerConfig();
+	set_default_timer_config(lc->TimerConfigs, CONFIG_TIMER_CHANNELS);
 
-   TimerConfig *c = lc->TimerConfigs;
-   for (size_t i = 0; i < CONFIG_TIMER_CHANNELS; ++i) {
-      CPPUNIT_ASSERT(strlen(c[i].cfg.label));
-      CPPUNIT_ASSERT(c[i].cfg.sampleRate == SAMPLE_DISABLED);
-   }
+	for (size_t i = 0; i < CONFIG_TIMER_CHANNELS; ++i) {
+		TimerConfig *tc = lc->TimerConfigs + i;
+		char label[8];
+		if (i)
+			snprintf(label, 8, "RPM%d", i + 1);
+		else
+			strcpy(label, "RPM");
+
+
+		CPPUNIT_ASSERT_EQUAL(string(label), string(tc->cfg.label));
+		CPPUNIT_ASSERT_EQUAL(string("rpm"), string(tc->cfg.units));
+		CPPUNIT_ASSERT_EQUAL((float) 0, tc->cfg.min);
+		CPPUNIT_ASSERT_EQUAL((float) 8000, tc->cfg.max);
+		CPPUNIT_ASSERT(tc->cfg.sampleRate == SAMPLE_DISABLED);
+	}
 }
 
 void LoggerConfigTest::testLoggerInitImuConfig() {
@@ -140,48 +153,51 @@ void LoggerConfigTest::testLoggerInitObd2Config() {
 }
 
 void LoggerConfigTest::testLoggerInitGpsConfig() {
-   LoggerConfig *lc = getWorkingLoggerConfig();
-   ChannelConfig *cc;
+	LoggerConfig *lc = getWorkingLoggerConfig();
+	ChannelConfig *cc;
 
-   cc = &lc->GPSConfigs.latitude;
-   CPPUNIT_ASSERT_EQUAL(string("Latitude"), string(cc->label));
-   CPPUNIT_ASSERT_EQUAL(string("Degrees"), string(cc->units));
-   CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
+	cc = &lc->GPSConfigs.latitude;
+	CPPUNIT_ASSERT_EQUAL(string("Latitude"), string(cc->label));
+	CPPUNIT_ASSERT_EQUAL(string("Degrees"), string(cc->units));
+	CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
 
-   cc = &lc->GPSConfigs.longitude;
-   CPPUNIT_ASSERT_EQUAL(string("Longitude"), string(cc->label));
-   CPPUNIT_ASSERT_EQUAL(string("Degrees"), string(cc->units));
-   CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
+	cc = &lc->GPSConfigs.longitude;
+	CPPUNIT_ASSERT_EQUAL(string("Longitude"), string(cc->label));
+	CPPUNIT_ASSERT_EQUAL(string("Degrees"), string(cc->units));
+	CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
 
-   cc = &lc->GPSConfigs.speed;
-   CPPUNIT_ASSERT_EQUAL(string("Speed"), string(cc->label));
-   CPPUNIT_ASSERT_EQUAL(string("MPH"), string(cc->units));
-   CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
+	cc = &lc->GPSConfigs.speed;
+	CPPUNIT_ASSERT_EQUAL(string("Speed"), string(cc->label));
+	CPPUNIT_ASSERT_EQUAL(string(units_get_label(UNIT_SPEED_MILES_HOUR)),
+			     string(cc->units));
+	CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
 
-   cc = &lc->GPSConfigs.distance;
-   CPPUNIT_ASSERT_EQUAL(string("Distance"), string(cc->label));
-   CPPUNIT_ASSERT_EQUAL(string("Miles"), string(cc->units));
-   CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
+	cc = &lc->GPSConfigs.distance;
+	CPPUNIT_ASSERT_EQUAL(string("Distance"), string(cc->label));
+	CPPUNIT_ASSERT_EQUAL(string(units_get_label(UNIT_LENGTH_MILES)),
+			     string(cc->units));
+	CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
 
-   cc = &lc->GPSConfigs.altitude;
-   CPPUNIT_ASSERT_EQUAL(string("Altitude"), string(cc->label));
-   CPPUNIT_ASSERT_EQUAL(string("Feet"), string(cc->units));
-   CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
+	cc = &lc->GPSConfigs.altitude;
+	CPPUNIT_ASSERT_EQUAL(string("Altitude"), string(cc->label));
+	CPPUNIT_ASSERT_EQUAL(string(units_get_label(UNIT_LENGTH_FEET)),
+			     string(cc->units));
+	CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
 
-   cc = &lc->GPSConfigs.satellites;
-   CPPUNIT_ASSERT_EQUAL(string("GPSSats"), string(cc->label));
-   CPPUNIT_ASSERT_EQUAL(string(""), string(cc->units));
-   CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
+	cc = &lc->GPSConfigs.satellites;
+	CPPUNIT_ASSERT_EQUAL(string("GPSSats"), string(cc->label));
+	CPPUNIT_ASSERT_EQUAL(string(""), string(cc->units));
+	CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
 
-   cc = &lc->GPSConfigs.quality;
-   CPPUNIT_ASSERT_EQUAL(string("GPSQual"), string(cc->label));
-   CPPUNIT_ASSERT_EQUAL(string(""), string(cc->units));
-   CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
+	cc = &lc->GPSConfigs.quality;
+	CPPUNIT_ASSERT_EQUAL(string("GPSQual"), string(cc->label));
+	CPPUNIT_ASSERT_EQUAL(string(""), string(cc->units));
+	CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
 
-   cc = &lc->GPSConfigs.DOP;
-   CPPUNIT_ASSERT_EQUAL(string("GPSDOP"), string(cc->label));
-   CPPUNIT_ASSERT_EQUAL(string(""), string(cc->units));
-   CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
+	cc = &lc->GPSConfigs.DOP;
+	CPPUNIT_ASSERT_EQUAL(string("GPSDOP"), string(cc->label));
+	CPPUNIT_ASSERT_EQUAL(string(""), string(cc->units));
+	CPPUNIT_ASSERT(cc->sampleRate == DEFAULT_GPS_SAMPLE_RATE);
 }
 
 void LoggerConfigTest::testLoggerInitLapConfig() {
@@ -230,8 +246,9 @@ void LoggerConfigTest::testLoggerInitConnectivityConfig() {
    LoggerConfig *lc = getWorkingLoggerConfig();
 
    BluetoothConfig *btc = &lc->ConnectivityConfigs.bluetoothConfig;
-   CPPUNIT_ASSERT_EQUAL(string(DEFAULT_BT_DEVICE_NAME), string(btc->deviceName));
-   CPPUNIT_ASSERT_EQUAL(string(DEFAULT_BT_PASSCODE), string(btc->passcode));
+
+   CPPUNIT_ASSERT_EQUAL(string(""), string(btc->new_name));
+   CPPUNIT_ASSERT_EQUAL(string(""), string(btc->new_pin));
    CPPUNIT_ASSERT_EQUAL(DEFAULT_BT_ENABLED, (int) btc->btEnabled);
 
    CellularConfig *cc = &lc->ConnectivityConfigs.cellularConfig;

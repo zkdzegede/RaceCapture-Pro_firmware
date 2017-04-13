@@ -1,15 +1,182 @@
+= 2.10.2 =
+* Fixed OBDII Stack Smash issue on RCT
+* Fixed version printing information to reflect git tags
+* Fixed LUA Raw character handling regression
+* Fixed LUA readSer regression
+
+= 2.10.1 =
+* Fixed SIM900 failure to connect issue.
+* Fix below sea level altitude issue.
+* Fix AT parsing bug in cellular for IMEI.
+* Fix battery voltage reading issue in RaceCapture devices.
+* Improve handling of invalid JSON characters when both encoding and
+  decoding JSON messages.
+* Fix SD card logging bug where we could log sample out of order at
+  the beginning of the log file.
+* Improve track selection algorithm upon track detection .
+
+= 2.10.0 =
+* RaceCapture supported!
+* Reduction of stack sizes to improve RAM usage
+* WiFi support
+* TCP socket support
+* Streaming telemetry over Wifi Support
+* IOCTL support for all communications channels
+* Added support for Bluetooth baud rate to adjust to 230400.  Will
+  become default in 2.11.0
+* Changed distance calculation to integration of speed over time
+  instead of point to point measurement.
+* Improved usage of newlib libc to reduce code duplication internally.
+* Upgraded SD card driver and FATFS subsystem.  Result is a very
+  stable SD card system.
+* Created new AT subsystem for use with all AT modems (ESP8266,
+  U-Blox).  Used with ESP8266 currently.
+* Audited and fixed all IRQ values to be lower than those of FreeRTOS
+  to ensure no interrupt conflicts.
+* Added debug builds for all dev builds with ASSERT support to help
+  find hidden bugs early.
+* Moved all UART communication to DMA, reducing interrupt rates as
+  much as 32x.
+* Improved testing on API calls to help avoid future regressions.
+* Boot loader fixes to work around small bugs in USB.
+* LUA now supports scripts without the `onTick` method as one time
+  only
+* Make builds binary identical across platform to help with debugging.
+* Add `setActiveTrack` API to allow app to override active track to
+  improve user experience.
+* Adjusted timer to support measuring of slow rotation rates (down to
+  1/10 Hz)
+* Added auto-logger support, a new subsystem that start/stops file
+  logging based on speed and time parameters
+* Added basic metric support to GPS page for European customers.
+* Added Serial Logging support to be able to debug any serial port
+  during run time.
+* Added capabilites flags to firmware.  Useful for determining what
+  the firmware supports.
+
+= 2.9.2 =
+* Reduce the size of the DMA buffer to ensure small GPS messages are received.
+* Add 'break;' statements in timer init to use user setting and not fall into
+  the default value of "medium".
+* Improve the processing of GPS stream data to not require start of message to
+  be aligned on even bytes.
+* Added delays to GPS command responses so we can be sure the GPS chips is
+  caught up before the next command is sent. Otherwise we see sporadic
+  failures.
+* Fix a bitwise bug logic in the USART init code.  This would incorretly
+  enable usart interrupts on usart channels where DMA was used.
+* Fixed compilation on GCC 6 toolchain.
+* Verified that USB only power no longer causes the unit to hang.
+
+= 2.9.1 =
+* Added CHAP support for APN authentication on 3G modem.  This is activated
+  when user provides an APN password.
+  https://github.com/autosportlabs/RaceCapture-Pro_firmware/issues/619
+* Improved SD Card operations by removing duplicate initialization issue and
+  removing unnecessary critical task guards which lead to long system pauses.
+  Other pauses remain, but the SD card logging no longer blocks preemption.
+  https://github.com/autosportlabs/RaceCapture-Pro_firmware/issues/571
+* Back ported fix for the dual malloc issue.  We were unintentionally running
+  both the FreeRTOS allocator and the glibc allocator.  Fortunately this did
+  not cause issues because we made very limited use of the glibc allocator.
+  This patch adds the code so that we always use the FreeRTOS allocator, even
+  if we use glibc malloc/realloc/calloc/free calls.
+  https://github.com/autosportlabs/RaceCapture-Pro_firmware/issues/565
+* Fixed issue in USART on MK2 where an improper clearing of the ORE flag could
+  cause the system to lock up and watchdog.
+  https://github.com/autosportlabs/RaceCapture-Pro_firmware/issues/562
+* Removed unused CAN TX queues in MK2 hal to improve memory
+  https://github.com/autosportlabs/RaceCapture-Pro_firmware/issues/553
+* Fixed invalid status return value when timeout = 0 on CAN TX invocation.  Now
+  we return a useful status, informing the caller of whether or not the message
+  was added to the mailbox to send.
+  https://github.com/autosportlabs/RaceCapture-Pro_firmware/issues/549
+* Drastically improved Lua GC behavior; built Lua Test script to prove it.
+  https://github.com/autosportlabs/RaceCapture-Pro_firmware/issues/476
+
+= 2.9.0 =
+* Fixed Lua stack overflow bug by increasing Lua Stack size (Issue #411)
+* Fixed timer input so it resets to 0 when no input detected (Issue #418)
+* Added RPM filtering in software to get rid of unrealistic engine speed
+  values (Issue #430). NOTE: The new quiet period logic uses your maximum
+  and pulse per revolution values to calculate the quiet period. Ensure
+  your maximum RPM and pulse per revolution values are set correctly.
+* Fixed Lua onTick timing bug that was causing Lua to wait longer than it
+  should between onTick events. (Issue #433)
+* Quieted various Lua memory alloc/free messages (Issue #410)
+* Fixed virtual channel issue where if the virtual channel sample rate was
+  faster than other channels, it would not record. (Issue #444)
+* Added new OBD-II PIDs into our OBD-II system.  Special thanks to
+  Justin Imhoff (https://github.com/imhoffj) for the patch.
+* Improved `addChannel` method in Lua environment to validate all inputs.
+  Now it will error with detailed information if a user supplies an invalid
+  input parameter or an invalid sample rate. (Issue #424)
+* Fix USB suspend bug that causes device to go non-responsive when put into
+  suspend mode. (Issue #426)
+* Fixed timer prescalar skew caused by varying timer speeds settings.  Now all
+  timer speeds report correct values (when frequency is within the timer
+  measurement range of course.  A good test is 100Hz). (Issue #435)
+* Fixed telemetry destination.  Currently set to telemetry.race-capture.com
+  (Issue #341)
+* Removed MK1 platform from build tree.
+* Improve unit test infrastructure to compile all firmware code strictly in
+  C (was C compiled as C++) and test accordingly.
+* Improved unit test platform to be able to directly include C files to test
+  static methods and other non-visible methods as part of the unit test suite.
+* Fixed serial device pass-through watchdog event.  (Issue #352)
+* Remove obd2SampleRate structure from LoggerConfig since deprecated (Issue #164)
+* Standardized accelerometer on SAE J670E vector axis spec and adjusted internal
+  mappings of RCP units to ensure that default orientation of MK2 matches this
+  exactly.
+* Added Lua method to get GPS altitude in Lua runtime. (Issue #397)
+* Fixed timeout support on Lua CAN tx method.  (Issue #404)
+* Merged RaceCapture codebase into this mainline project.
+* Add dynamic cellular modem support.  This allows us to support both our current
+  sim900 card and the new ublox-sara 3G cards. (Issue #182)
+* Added support for up to 100 virtual channels in Lua.  Up from 30. (Issue #414)
+* Adjusted internal process priorities so that the logging snapshot process
+  runs with this highest priority.  This is to ensure that we never miss time a
+  snap-shot operation.
+* Improve `onTick` method in Lua to be able to run at 1000Hz maximum rate.  Not
+  gauranteed to run at that rate (depends on how much Lua code there is to parse)
+  but local testing shows its possible to do if code is optimized. (Issue #423)
+* Added a new `getChannel` method in Lua so users don't have to maintain virtual
+  channel values in Lua environment variables if they want to later calculate
+  additional channels using the recorded virtual channel values. (Issue #456)
+* Add additional version information to the firmware.  Now include build type
+  (release, beta, dev) and a git description string. (Issue #436)
+* Fixed up LED mappings, added deterministic LED control code to firmware.  This
+  prevents us from turning the wrong LED on or off due to different LED mappings
+  between RaceCapture platforms. (Issue #437)
+* Fixed up Lua setLed method to be consistent on which LED is set and to also allow
+  the user to specify an LED based on a string identifier to be able to control it.
+  (Issue #437)
+* Improved our timer by adding support for selecting which edge we want to use for
+  timing measurements (Default is falling).  Also allows the user to specify the
+  a quiet period for filtering if they wish to override the automatically calculated
+  value.  A value of 0 will disable the filtering altogether.  A value < 0 sets the
+  code into automatic calculation mode. (Issue #464)
+* Fixed OBD-II speed conversion from kph to mph
+
 === 2.8.7 ===
 * Properly handle analog linear scaling offset value.
 * Report correct min/max values in logfile.
 * Updated telemetry destination to work better with caching services.
-* Remove MK1 code from mainstream dev tree and migrate to legacy branch.
-* Fixes a bug in start logic in the lap_stats code and adds 12 new unit
-  tests to better ensure the stability of that code.
-* Fix predictive time unit by having it return 0 when not in operation.
-  Otherwise it can return invalid data.
+* Remove MK1 code from mainstream dev tree and migrate to legacy
+  branch.
+* Fixes a bug in start logic in the lap_stats code and adds 12 new
+  unit tests to better ensure the stability of that code.
+* Fix predictive time unit by having it return 0 when not in
+  operation.  Otherwise it can return invalid data.
+* Converted Lua base number to double from float (allows 29 bit CAN
+  IDs to work correctly).
+* Added Lua bitOp bitwise operations
+* Fixes a bug in start logic in the lap_stats code and adds 12 new
+  unit tests to better ensure the stability of that code.
 
 === 2.8.6 ===
-* Make OBD-II engine report temperature and speed that match channel defaults (deg. F / MPH)
+* Make OBD-II engine report temperature and speed that match channel
+  defaults (deg. F / MPH)
 * Improved accuracy of IMU
 
 === 2.8.5 ===

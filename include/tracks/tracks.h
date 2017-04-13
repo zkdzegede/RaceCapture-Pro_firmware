@@ -42,19 +42,12 @@ enum track_add_mode {
         TRACK_ADD_MODE_COMPLETE = 2,
 };
 
-#define MAX_TRACK_COUNT				40
+#define MAX_TRACK_COUNT				MAX_TRACKS
 #define SECTOR_COUNT				MAX_SECTORS
 #define CIRCUIT_SECTOR_COUNT		SECTOR_COUNT - 1
 #define STAGE_SECTOR_COUNT			SECTOR_COUNT - 2
 
 #define DEFAULT_TRACK_TARGET_RADIUS	0.0001
-
-#define DEFAULT_TRACKS \
-{ \
-    DEFAULT_VERSION_INFO, \
-    0, \
-    {} \
-}
 
 enum TrackType {
     TRACK_TYPE_CIRCUIT = 0,

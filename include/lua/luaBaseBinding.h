@@ -27,20 +27,16 @@
 
 CPP_GUARD_BEGIN
 
-int f_impl(lua_State *L);
-
+int lua_panic(lua_State *l);
+void lua_validate_args_count(lua_State *l, const int min, const int max);
+void lua_validate_arg_boolean(lua_State *l, const int idx);
+void lua_validate_arg_number(lua_State *l, const int idx);
+void lua_validate_arg_string(lua_State *l, const int idx);
+void lua_validate_arg_table(lua_State *l, const int idx);
+void lua_validate_arg_number_or_string(lua_State *l, const int idx);
+void lua_validate_arg_boolean_flex(lua_State *l, const int idx);
+bool lua_toboolean_flex(lua_State *l, const int idx);
 void registerBaseLuaFunctions(lua_State *L);
-
-// utility functions
-int Lua_Print(lua_State *L);
-int Lua_Println(lua_State *L);
-int Lua_GetStackSize(lua_State *L);
-int Lua_SetTickRate(lua_State *L);
-int Lua_GetTickRate(lua_State *L);
-int Lua_PrintLog(lua_State *L);
-int Lua_PrintLogLn(lua_State *L);
-int Lua_SetLogLevel(lua_State *L);
-int Lua_GetLogLevel(lua_State *L);
 
 CPP_GUARD_END
 

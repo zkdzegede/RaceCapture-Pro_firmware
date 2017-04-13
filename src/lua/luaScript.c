@@ -19,17 +19,18 @@
  * this code. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "luaScript.h"
 #include "luaTask.h"
 #include "mem_mang.h"
-#include "mod_string.h"
 #include "printk.h"
+#include "str_util.h"
+#include <string.h>
 
 #ifndef RCP_TESTING
 static const volatile ScriptConfig g_scriptConfig  __attribute__((section(".script\n\t#")));
 #else
-static ScriptConfig g_scriptConfig = {DEFAULT_SCRIPT, MAGIC_NUMBER_SCRIPT_INIT};
+static ScriptConfig g_scriptConfig = {MAGIC_NUMBER_SCRIPT_INIT,
+                                      DEFAULT_SCRIPT};
 #endif
 
 void initialize_script()
@@ -41,25 +42,37 @@ void initialize_script()
 
 int flash_default_script()
 {
-    int result = -1;
-    pr_info("flashing default script...");
+        int result = -1;
+        pr_info("flashing default script...");
 
-    /*
-     * Stop LUA if we are flashing its data.  This is mainly done to recover
-     * RAM since our flashing operation is a heavy bugger
-     */
-    terminate_lua();
+        /*
+         * Stop LUA if we are flashing its data.  This is mainly done to recover
+         * RAM since our flashing operation is a heavy bugger
+         */
+        lua_task_stop();
 
-    ScriptConfig *defaultScriptConfig = (ScriptConfig *)portMalloc(sizeof(ScriptConfig));
-    if (defaultScriptConfig != NULL) {
+        ScriptConfig *defaultScriptConfig =
+                (ScriptConfig *) calloc(sizeof(ScriptConfig), 1);
+        if (defaultScriptConfig == NULL) {
+                pr_error("LUA: Can't flash.  Can't allocate RAM\r\n");
+                return result;
+        }
+
         defaultScriptConfig->magicInit = MAGIC_NUMBER_SCRIPT_INIT;
-        strncpy(defaultScriptConfig->script, DEFAULT_SCRIPT, sizeof(DEFAULT_SCRIPT));
-        result = memory_flash_region((void *)&g_scriptConfig, (void *)defaultScriptConfig, sizeof (ScriptConfig));
+        strntcpy(defaultScriptConfig->script, DEFAULT_SCRIPT,
+		 sizeof(DEFAULT_SCRIPT));
+        result = memory_flash_region((void *)&g_scriptConfig,
+                                     (void *)defaultScriptConfig,
+                                     sizeof (ScriptConfig));
         portFree(defaultScriptConfig);
-    }
-    if (result == 0) pr_info("win\r\n");
-    else pr_info("fail\r\n");
-    return result;
+
+        if (result == 0) {
+                pr_info("win\r\n");
+        } else {
+                pr_info("fail\r\n");
+        }
+
+        return result;
 }
 
 const char * getScript()
@@ -127,7 +140,7 @@ enum script_add_result flashScriptPage(const unsigned int page,
 
         static ScriptConfig *g_scriptBuffer;
         if (NULL == g_scriptBuffer) {
-                terminate_lua();
+                lua_task_stop();
 
                 pr_debug("lua: Allocating new script buffer\r\n");
                 g_scriptBuffer =
@@ -161,6 +174,6 @@ enum script_add_result flashScriptPage(const unsigned int page,
         }
 
         pr_info("win!\r\n");
-        initialize_lua();
+        lua_task_start();
         return SCRIPT_ADD_RESULT_OK;
 }

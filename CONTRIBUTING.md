@@ -1,5 +1,6 @@
 How to Contribute
 =================
+
 Being an open source software company, we love contributions from
 outside our organization. But getting to know a projects way's is
 never easy and can often be daunting.  That is why we have written

@@ -32,14 +32,18 @@
 #include "GPIO.h"
 
 #define DEBOUNCE_DELAY_PERIOD		30
-#define GPIO_TASK_STACK_SIZE		50
+#define GPIO_TASK_STACK_SIZE		64
 
 xSemaphoreHandle xOnPushbutton;
 
 void startGPIOTasks(int priority)
 {
-    vSemaphoreCreateBinary( xOnPushbutton );
-    xTaskCreate( onPushbuttonTask, 	( signed portCHAR * ) "PushbuttonTask", 	GPIO_TASK_STACK_SIZE, 	NULL, 	priority, 	NULL );
+        vSemaphoreCreateBinary( xOnPushbutton );
+
+        /* Make all task names 16 chars including NULL char */
+        static const signed portCHAR task_name[] = "Button Task    ";
+        xTaskCreate(onPushbuttonTask, task_name, GPIO_TASK_STACK_SIZE,
+                    NULL, priority, NULL);
 }
 
 

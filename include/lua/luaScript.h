@@ -30,6 +30,8 @@
 
 CPP_GUARD_BEGIN
 
+#if LUA_SUPPORT
+
 enum script_add_result {
         SCRIPT_ADD_RESULT_FAIL = 0,
         SCRIPT_ADD_RESULT_OK = 1,
@@ -45,8 +47,8 @@ enum script_add_mode {
 #define MAX_SCRIPT_PAGES	(SCRIPT_MEMORY_LENGTH / SCRIPT_PAGE_SIZE)
 
 typedef struct _ScriptConfig {
-        char script[SCRIPT_MEMORY_LENGTH - 4];
         uint32_t magicInit;
+        char script[SCRIPT_MEMORY_LENGTH - 4];
 } ScriptConfig;
 
 void initialize_script();
@@ -61,6 +63,8 @@ enum script_add_result flashScriptPage(unsigned int page, const char *data,
 void unescapeScript(char *data);
 
 #define DEFAULT_SCRIPT "function onTick() end"
+
+#endif /* LUA_SUPPORT */
 
 CPP_GUARD_END
 
